@@ -205,10 +205,9 @@ function App() {
     void load(address)
   }, [address, load])
 
-  // Кнопка «Бот» — пролистать вниз к Telegram-секции и открыть бота в новом окне.
+  // Кнопка «Бот» — пролистать вниз к Telegram-секции.
   const handleBot = useCallback(() => {
     document.getElementById('telegram')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    window.open('https://t.me/FluxRadar_bot', '_blank', 'noopener,noreferrer')
   }, [])
 
   // Якорная навигация Header → плавный скролл к секции.
