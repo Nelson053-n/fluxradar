@@ -592,11 +592,12 @@ async fn handle_status(bot: &Bot, state: &BotState, chat_id: ChatId, lang: Lang)
     Ok(())
 }
 
-/// Форматирует секунды в MM:SS (минуты без ведущего нуля, секунды с ведущим нулём).
-/// Напр. 145 → "2:25", 611 → "10:11", 5 → "0:05".
-fn fmt_mmss(secs: i64) -> String {
-    let secs = secs.max(0);
-    format!("{}:{:02}", secs / 60, secs % 60)
+/// Форматирует секунды в Ч:ММ (часы без ведущего нуля, минуты с ведущим нулём).
+/// Время до выплаты бывает много часов (rank × 30с), потому часы, а не минуты.
+/// Напр. 8340с → "2:19", 36900с → "10:15", 300с → "0:05".
+fn fmt_hhmm(secs: i64) -> String {
+    let m = secs.max(0) / 60;
+    format!("{}:{:02}", m / 60, m % 60)
 }
 
 /// Экранирование под HTML `<pre>` (Telegram требует &lt; &gt; &amp;).
@@ -625,7 +626,7 @@ fn status_table_chunks(nodes: &[flux_client::DeterministicNode]) -> Vec<String> 
         .max("IP".len());
 
     // Строки таблицы (заголовок + по ноде).
-    let header = format!("{:>rank_w$}  {:>ip_w$}  {}", "rank", "IP", "Payout");
+    let header = format!("{:>rank_w$}  {:>ip_w$}  {}", "rank", "IP", "Payout(h:m)");
     let mut rows: Vec<String> = Vec::with_capacity(nodes.len() + 1);
     rows.push(header);
     for n in nodes {
@@ -633,7 +634,7 @@ fn status_table_chunks(nodes: &[flux_client::DeterministicNode]) -> Vec<String> 
             "{:>rank_w$}  {:>ip_w$}  {}",
             n.rank,
             n.ip,
-            fmt_mmss(domain::payout_eta_secs(n.rank)),
+            fmt_hhmm(domain::payout_eta_secs(n.rank)),
         ));
     }
 
