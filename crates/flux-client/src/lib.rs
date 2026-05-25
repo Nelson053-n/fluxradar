@@ -14,8 +14,6 @@ const DEFAULT_BASE_URL: &str = "https://api.runonflux.io";
 // CoinGecko: FLUX торгуется под legacy-id `zelcash` (факт, проверено).
 // include_24hr_change — для бейджа изменения цены на дашборде.
 const COINGECKO_PRICE_URL: &str = "https://api.coingecko.com/api/v3/simple/price?ids=zelcash&vs_currencies=usd&include_24hr_change=true";
-// ip-api batch: до 100 IP за запрос, бесплатно (геолокация нод).
-const IP_API_BATCH_URL: &str = "http://ip-api.com/batch?fields=query,country,countryCode,city";
 
 #[derive(Debug, thiserror::Error)]
 pub enum FluxError {
@@ -108,18 +106,6 @@ pub struct NodeStatusInfo {
     pub lastpaid: String,
 }
 
-/// Геолокация ноды по IP (ip-api.com batch).
-#[derive(Debug, Clone, Deserialize)]
-pub struct GeoInfo {
-    pub query: String,
-    #[serde(default)]
-    pub country: String,
-    #[serde(rename = "countryCode", default)]
-    pub country_code: String,
-    #[serde(default)]
-    pub city: String,
-}
-
 /// Статистика по одному Parallel Asset-чейну (fusion.runonflux.io).
 #[derive(Debug, Clone, Deserialize)]
 pub struct PaChainStat {
@@ -171,6 +157,14 @@ pub struct NodeStats {
     pub flux_os_version: String,
     /// Число запущенных приложений на ноде.
     pub apps_count: u32,
+    /// Геолокация ноды (репортит сам Flux-бенчмарк, projection=geolocation).
+    #[serde(default)]
+    pub country: String,
+    #[serde(default)]
+    pub country_code: String,
+    /// Регион/область (regionName) — у источника нет города, показываем регион.
+    #[serde(default)]
+    pub region: String,
 }
 
 // --- Внутренние формы ответа fluxinfo (один комбинированный projection). ---
@@ -180,6 +174,16 @@ struct FluxInfoRec {
     ip: String,
     benchmark: Option<BenchWrap>,
     apps: Option<AppsWrap>,
+    geolocation: Option<GeoRec>,
+}
+#[derive(Debug, Default, Deserialize)]
+struct GeoRec {
+    #[serde(default)]
+    country: String,
+    #[serde(rename = "countryCode", default)]
+    country_code: String,
+    #[serde(rename = "regionName", default)]
+    region_name: String,
 }
 #[derive(Debug, Deserialize)]
 struct BenchWrap {
@@ -354,7 +358,7 @@ impl FluxClient {
     pub async fn network_node_stats(
         &self,
     ) -> Result<std::collections::HashMap<String, NodeStats>, FluxError> {
-        let url = "https://stats.runonflux.io/fluxinfo?projection=ip,apps.runningapps,benchmark.info.version,benchmark.bench.status,benchmark.bench.error,benchmark.bench.cores,benchmark.bench.ram,benchmark.bench.ssd,benchmark.bench.eps,benchmark.bench.ping";
+        let url = "https://stats.runonflux.io/fluxinfo?projection=ip,apps.runningapps,benchmark.info.version,benchmark.bench.status,benchmark.bench.error,benchmark.bench.cores,benchmark.bench.ram,benchmark.bench.ssd,benchmark.bench.eps,benchmark.bench.ping,geolocation.country,geolocation.countryCode,geolocation.regionName";
         let resp = self.http.get(url).send().await?;
         if !resp.status().is_success() {
             return Err(FluxError::Status(resp.status()));
@@ -381,6 +385,7 @@ impl FluxClient {
             let bench_passed = bench
                 .map(|b| b.error.is_empty() && !b.status.is_empty())
                 .unwrap_or(false);
+            let geo = r.geolocation.unwrap_or_default();
             let stats = NodeStats {
                 bench_passed,
                 cores: bench.map(|b| b.cores).unwrap_or(0.0),
@@ -390,22 +395,13 @@ impl FluxClient {
                 ping: bench.map(|b| b.ping).unwrap_or(0.0),
                 flux_os_version: version,
                 apps_count: r.apps.map(|a| a.runningapps.len() as u32).unwrap_or(0),
+                country: geo.country,
+                country_code: geo.country_code,
+                region: geo.region_name,
             };
             map.insert(host, stats);
         }
         Ok(map)
-    }
-
-    /// Геолокация пачки IP через ip-api batch (до 100 за раз). Кэшируется выше по стеку.
-    pub async fn geo_batch(&self, ips: &[String]) -> Result<Vec<GeoInfo>, FluxError> {
-        if ips.is_empty() {
-            return Ok(Vec::new());
-        }
-        let resp = self.http.post(IP_API_BATCH_URL).json(&ips).send().await?;
-        if !resp.status().is_success() {
-            return Err(FluxError::Status(resp.status()));
-        }
-        Ok(resp.json().await?)
     }
 
     async fn get_json<T: serde::de::DeserializeOwned>(&self, url: &str) -> Result<T, FluxError> {

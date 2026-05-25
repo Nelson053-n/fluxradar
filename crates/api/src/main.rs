@@ -30,8 +30,6 @@ struct AppState {
 const CACHE_TTL_SECS: u64 = 30;
 /// TTL кэша детали ноды (статус/apps) — дороже, живёт дольше.
 const DETAIL_TTL_SECS: u64 = 300;
-/// TTL кэша геолокации — почти статична.
-const GEO_TTL_SECS: u64 = 86_400;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -316,16 +314,9 @@ async fn wallet_nodes(
         Err(err) => return upstream_error(err),
     };
 
-    // Параллельно: бенчмарк/apps/FluxOS (тёплый кэш), гео IP флота, высота блока.
-    let host_ips: Vec<String> = nodes
-        .iter()
-        .map(|n| flux_client::ip_host(&n.ip).to_owned())
-        .collect();
-    let (node_stats, geo, height_res) = tokio::join!(
-        cached_node_stats(&state),
-        fleet_geo(&state, &host_ips),
-        state.flux.block_height(),
-    );
+    // Параллельно: бенчмарк/apps/FluxOS/гео (тёплый кэш node_stats) + высота блока.
+    let (node_stats, height_res) =
+        tokio::join!(cached_node_stats(&state), state.flux.block_height());
     let block_height = height_res.unwrap_or(0);
 
     let now = chrono::Utc::now().timestamp();
@@ -334,8 +325,7 @@ async fn wallet_nodes(
         .map(|n| {
             let host = flux_client::ip_host(&n.ip);
             let stats = node_stats.as_ref().and_then(|m| m.get(host));
-            let geo_val = geo.get(host).cloned().unwrap_or(serde_json::Value::Null);
-            node_json(&n, now, stats, geo_val, block_height)
+            node_json(&n, now, stats, block_height)
         })
         .collect();
     (StatusCode::OK, Json(json!({"nodes": items}))).into_response()
@@ -409,48 +399,11 @@ async fn wallet_apps(
     (StatusCode::OK, Json(body)).into_response()
 }
 
-/// Геолокация IP флота одним batch-запросом с кэшем в Redis (host → {country,...}).
-async fn fleet_geo(
-    state: &AppState,
-    host_ips: &[String],
-) -> std::collections::HashMap<String, serde_json::Value> {
-    let mut result = std::collections::HashMap::new();
-    let mut to_fetch = Vec::new();
-    // Сначала из кэша (гео почти статична, TTL сутки).
-    for ip in host_ips {
-        let key = format!("geo:{ip}");
-        if let Ok(Some(c)) = cache::get(&state.redis, &key).await {
-            if let Ok(v) = serde_json::from_str(&c) {
-                result.insert(ip.clone(), v);
-                continue;
-            }
-        }
-        to_fetch.push(ip.clone());
-    }
-    // Остаток — одним batch к ip-api.
-    if !to_fetch.is_empty() {
-        if let Ok(geos) = state.flux.geo_batch(&to_fetch).await {
-            for g in geos {
-                let host = flux_client::ip_host(&g.query).to_owned();
-                let v =
-                    json!({"country": g.country, "country_code": g.country_code, "city": g.city});
-                if let Ok(s) = serde_json::to_string(&v) {
-                    let _ =
-                        cache::set_ex(&state.redis, &format!("geo:{host}"), &s, GEO_TTL_SECS).await;
-                }
-                result.insert(host, v);
-            }
-        }
-    }
-    result
-}
-
-/// JSON одной ноды для списка: дешёвые поля + apps/FluxOS (node_stats) + гео + обслуживание.
+/// JSON одной ноды для списка: дешёвые поля + apps/FluxOS/гео (node_stats) + обслуживание.
 fn node_json(
     n: &DeterministicNode,
     now: i64,
     stats: Option<&flux_client::NodeStats>,
-    geo: serde_json::Value,
     block_height: i64,
 ) -> serde_json::Value {
     let age = n
@@ -476,8 +429,21 @@ fn node_json(
         // Версия FluxOS из node_stats (тёплый кэш) по IP. Apps в таблице не показываем
         // (running != installed — расхождение; число приложений см. в деталях ноды).
         "flux_os_version": stats.map(|s| s.flux_os_version.clone()).filter(|v| !v.is_empty()),
-        "geo": geo,
+        "geo": geo_json(stats),
     })
+}
+
+/// Геолокация ноды из NodeStats (официальный Flux-источник, projection=geolocation).
+/// Форма `{country, country_code, city}` сохранена для фронта (city = region). null — нет страны.
+fn geo_json(stats: Option<&flux_client::NodeStats>) -> serde_json::Value {
+    match stats {
+        Some(s) if !s.country.is_empty() => json!({
+            "country": s.country,
+            "country_code": s.country_code,
+            "city": s.region,
+        }),
+        _ => serde_json::Value::Null,
+    }
 }
 
 /// Деталь конкретной ноды (§8) — дорогие данные лениво: статус, apps, гео.
@@ -517,7 +483,9 @@ async fn node_detail(
     };
 
     let apps = state.flux.node_apps(&ip).await.unwrap_or_default();
-    let geo = node_geo(&state, host).await;
+    // Гео — из общего node_stats-кэша (официальный Flux-источник) по host.
+    let node_stats = cached_node_stats(&state).await;
+    let geo = geo_json(node_stats.as_ref().and_then(|m| m.get(host)));
 
     let body = json!({
         "ip": ip,
@@ -535,27 +503,6 @@ async fn node_detail(
         }
     }
     (StatusCode::OK, Json(body)).into_response()
-}
-
-/// Геолокация одного host с отдельным длинным кэшем (гео почти статична).
-async fn node_geo(state: &AppState, host: &str) -> serde_json::Value {
-    let geo_key = format!("geo:{host}");
-    if let Ok(Some(cached)) = cache::get(&state.redis, &geo_key).await {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&cached) {
-            return val;
-        }
-    }
-    let geo = match state.flux.geo_batch(&[host.to_owned()]).await {
-        Ok(mut v) if !v.is_empty() => {
-            let g = v.remove(0);
-            json!({"country": g.country, "country_code": g.country_code, "city": g.city})
-        }
-        _ => json!(null),
-    };
-    if let Ok(s) = serde_json::to_string(&geo) {
-        let _ = cache::set_ex(&state.redis, &geo_key, &s, GEO_TTL_SECS).await;
-    }
-    geo
 }
 
 /// Бенчмарк/apps по всем нодам сети с кэшем в Redis. None при ошибке.
