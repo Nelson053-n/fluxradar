@@ -136,7 +136,8 @@ const ru: Record<Keys, string> = {
 
   // Footer
   'footer.copyright': '© 2026 FluxRadar · Self-hosted мониторинг Flux-нод',
-  'footer.github': 'GitHub',
+  'footer.github': 'Flux GitHub',
+  'footer.source': 'Исходный код',
   'footer.apiDocs': 'API-доки',
   'footer.privacy': 'Приватность',
   'footer.fluxNetwork': 'Сеть Flux',

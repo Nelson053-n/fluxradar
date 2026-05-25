@@ -5,6 +5,7 @@ import { formatInt } from '../lib/format'
 
 // Внешние ссылки футера (открываются в новой вкладке). Privacy — модалка, не ссылка.
 const EXTERNAL_LINKS: { labelKey: Keys; href: string }[] = [
+  { labelKey: 'footer.source', href: 'https://github.com/Nelson053-n/fluxradar' },
   { labelKey: 'footer.github', href: 'https://github.com/RunOnFlux' },
   { labelKey: 'footer.apiDocs', href: 'https://docs.runonflux.io/' },
   { labelKey: 'footer.fluxNetwork', href: 'https://home.runonflux.io/' },

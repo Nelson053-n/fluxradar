@@ -135,7 +135,8 @@ const en = {
 
   // Footer
   'footer.copyright': '© 2026 FluxRadar · Self-hosted Flux node monitor',
-  'footer.github': 'GitHub',
+  'footer.github': 'Flux GitHub',
+  'footer.source': 'Source code',
   'footer.apiDocs': 'API docs',
   'footer.privacy': 'Privacy',
   'footer.fluxNetwork': 'Flux Network',
