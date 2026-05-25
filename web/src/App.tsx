@@ -210,19 +210,9 @@ function App() {
     document.getElementById('telegram')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
-  // Якорная навигация Header → плавный скролл к секции.
-  // Контент выше (Spotlight/Hosted apps) дозагружается асинхронно и меняет высоту,
-  // из-за чего одиночный scrollIntoView не доезжает (цель уезжает вниз после старта).
-  // Поэтому повторяем скролл несколько раз по мере устаканивания макета.
+  // Якорная навигация Header → плавный скролл к секции (отступ сверху задаёт scroll-mt у секции).
   const handleNavigate = useCallback((sectionId: string) => {
-    const el = document.getElementById(sectionId)
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    // Корректирующие проскроллы после возможных изменений высоты выше секции.
-    const delays = [120, 320, 600]
-    delays.forEach((d) =>
-      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), d),
-    )
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
   // Scroll-spy активен только когда секции реально в DOM (данные загружены).
@@ -331,7 +321,7 @@ function App() {
                 mostHostedNode={apps.status === 'ready' ? (apps.data?.top_node ?? null) : null}
               />
 
-              <div id="nodes" className="mb-8 scroll-mt-24">
+              <div id="nodes" className="mb-8 scroll-mt-4">
                 <NodesTable nodes={data.nodes} onSelect={setSelectedNode} />
               </div>
 
