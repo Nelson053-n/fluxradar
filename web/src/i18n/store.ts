@@ -1,18 +1,17 @@
 import { createContext, useContext } from 'react'
 import en from './en'
 
-export type Lang = 'en' | 'ru' | 'zh'
+export type Lang = 'en' | 'ru'
 export type Keys = keyof typeof en
 
 export const LANG_STORAGE_KEY = 'fluxscope:lang'
 
-/** navigator.language → поддерживаемый язык. ru* → ru, zh* → zh, иначе en. */
+/** navigator.language → поддерживаемый язык. ru* → ru, иначе en. */
 export function detectLang(): Lang {
   const stored = localStorage.getItem(LANG_STORAGE_KEY)
-  if (stored === 'en' || stored === 'ru' || stored === 'zh') return stored
+  if (stored === 'en' || stored === 'ru') return stored
   const nav = (navigator.language || 'en').toLowerCase()
   if (nav.startsWith('ru')) return 'ru'
-  if (nav.startsWith('zh')) return 'zh'
   return 'en'
 }
 

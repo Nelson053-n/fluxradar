@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import en from './en'
 import ru from './ru'
-import zh from './zh'
 import {
   I18nContext,
   LANG_STORAGE_KEY,
@@ -17,7 +16,7 @@ import {
 // чтобы не ломать react-refresh: файл с компонентом экспортирует только компонент).
 export type { Lang, Keys, Translate } from './store'
 
-const DICTS: Record<Lang, Record<Keys, string>> = { en, ru, zh }
+const DICTS: Record<Lang, Record<Keys, string>> = { en, ru }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(detectLang)

@@ -5,7 +5,7 @@ const en = {
   'nav.dashboard': 'Dashboard',
   'nav.allNodes': 'All Nodes',
   'nav.guide': 'Guide',
-  'nav.demo': 'Demo',
+  'nav.bot': 'Bot',
 
   // Header / search
   'search.placeholder': 'Flux address (t1… / t3…)',

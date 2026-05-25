@@ -13,21 +13,21 @@ interface HeaderProps {
   priceChange24h: number | null
   /** Скролл к секции дашборда по id (Dashboard/All Nodes/Guide). */
   onNavigate: (sectionId: string) => void
-  /** Загрузить демо-кошелёк (вкладка Demo). */
-  onDemo: () => void
+  /** Пролистать к Telegram-секции и открыть бота в новом окне (кнопка «Бот»). */
+  onBot: () => void
   /** id активной (видимой) секции — для подсветки вкладки. */
   activeSection: string
 }
 
 type NavItem =
   | { kind: 'scroll'; labelKey: Keys; section: string }
-  | { kind: 'demo'; labelKey: Keys }
+  | { kind: 'bot'; labelKey: Keys }
 
 const NAV: NavItem[] = [
   { kind: 'scroll', labelKey: 'nav.dashboard', section: 'overview' },
   { kind: 'scroll', labelKey: 'nav.allNodes', section: 'nodes' },
   { kind: 'scroll', labelKey: 'nav.guide', section: 'guide' },
-  { kind: 'demo', labelKey: 'nav.demo' },
+  { kind: 'bot', labelKey: 'nav.bot' },
 ]
 
 const activeTab =
@@ -36,7 +36,7 @@ const idleTab =
   'whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary lg:px-[18px] lg:text-sm'
 
 /** Header: лого-радар + nav + переключатели темы/языка + цена FLUX. */
-export function Header({ priceUsd, priceChange24h, onNavigate, onDemo, activeSection }: HeaderProps) {
+export function Header({ priceUsd, priceChange24h, onNavigate, onBot, activeSection }: HeaderProps) {
   const t = useT()
 
   // История цены за год — грузится лениво при первом ховере/фокусе на блоке цены,
@@ -76,7 +76,7 @@ export function Header({ priceUsd, priceChange24h, onNavigate, onDemo, activeSec
               <button
                 key={item.labelKey}
                 type="button"
-                onClick={() => (item.kind === 'demo' ? onDemo() : onNavigate(item.section))}
+                onClick={() => (item.kind === 'bot' ? onBot() : onNavigate(item.section))}
                 className={isActive ? activeTab : idleTab}
               >
                 {t(item.labelKey)}

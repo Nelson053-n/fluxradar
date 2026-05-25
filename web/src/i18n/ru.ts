@@ -6,7 +6,7 @@ const ru: Record<Keys, string> = {
   'nav.dashboard': 'Обзор',
   'nav.allNodes': 'Ноды',
   'nav.guide': 'Гайд',
-  'nav.demo': 'Демо',
+  'nav.bot': 'Бот',
 
   // Header / search
   'search.placeholder': 'Flux-адрес (t1… / t3…)',

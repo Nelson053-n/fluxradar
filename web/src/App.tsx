@@ -37,8 +37,9 @@ import { readWallet, writeWallet, walletFromUrl } from './lib/walletParam'
 import { useScrollSpy } from './lib/useScrollSpy'
 import { useT } from './i18n/store'
 
-// Тестовый кошелёк с реальными данными (443 ноды) — дефолт при загрузке.
-const DEFAULT_ADDRESS = 't1JSp9NEoQBMv4CbxHdxaU699j5UNHDrgyX'
+// Дефолтный кошелёк при первой загрузке — с небольшим флотом, чтобы страница
+// открывалась быстрее (меньше нод → быстрее первый ответ API).
+const DEFAULT_ADDRESS = 't1MRWH9Q9sWA1XvqmwGoWqynaFFquq8pb7K'
 
 // Секции для якорной навигации и scroll-spy.
 const SECTIONS = ['overview', 'nodes', 'guide']
@@ -204,10 +205,11 @@ function App() {
     void load(address)
   }, [address, load])
 
-  // Вкладка Demo — загрузить дефолтный кошелёк (как обычный поиск).
-  const handleDemo = useCallback(() => {
-    handleSubmit(DEFAULT_ADDRESS)
-  }, [handleSubmit])
+  // Кнопка «Бот» — пролистать вниз к Telegram-секции и открыть бота в новом окне.
+  const handleBot = useCallback(() => {
+    document.getElementById('telegram')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.open('https://t.me/FluxRadar_bot', '_blank', 'noopener,noreferrer')
+  }, [])
 
   // Якорная навигация Header → плавный скролл к секции.
   const handleNavigate = useCallback((sectionId: string) => {
@@ -238,7 +240,7 @@ function App() {
         priceUsd={priceUsd}
         priceChange24h={price?.change_24h ?? null}
         onNavigate={handleNavigate}
-        onDemo={handleDemo}
+        onBot={handleBot}
         activeSection={activeSection}
       />
 
@@ -333,7 +335,9 @@ function App() {
                 earnings={data.summary.earnings}
                 paChains={data.summary.pa_chains ?? []}
               />
-              <TelegramCta />
+              <div id="telegram" className="scroll-mt-24">
+                <TelegramCta />
+              </div>
               <div id="guide" className="scroll-mt-24">
                 <Guide />
               </div>

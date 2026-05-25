@@ -3,10 +3,9 @@ import { useI18n, type Lang } from '../i18n/store'
 const OPTIONS: { code: Lang; label: string }[] = [
   { code: 'en', label: 'EN' },
   { code: 'ru', label: 'RU' },
-  { code: 'zh', label: '中文' },
 ]
 
-/** Сегментный переключатель языка (RU / EN / 中文) для Header. */
+/** Сегментный переключатель языка (RU / EN) для Header. */
 export function LangSwitch() {
   const { lang, setLang, t } = useI18n()
 

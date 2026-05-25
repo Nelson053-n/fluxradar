@@ -63,17 +63,16 @@ const MONTH = 30 * DAY
 const YEAR = 365 * DAY
 
 /** Язык для локализации единиц времени (совпадает с i18n Lang). */
-export type TimeLang = 'en' | 'ru' | 'zh'
+export type TimeLang = 'en' | 'ru'
 
 /** Локализованные суффиксы единиц времени: год / месяц / день / час / минута / секунда. */
 const TIME_UNITS: Record<TimeLang, { y: string; mo: string; d: string; h: string; m: string; s: string }> = {
   en: { y: 'y', mo: 'mo', d: 'd', h: 'h', m: 'm', s: 's' },
   ru: { y: 'г', mo: 'мес', d: 'д', h: 'ч', m: 'мин', s: 'с' },
-  zh: { y: '年', mo: '月', d: '天', h: '时', m: '分', s: '秒' },
 }
 
 /** «через ~» / «~ ago» — локализованная обёртка для относительного времени. */
-const AGO: Record<TimeLang, string> = { en: 'ago', ru: 'назад', zh: '前' }
+const AGO: Record<TimeLang, string> = { en: 'ago', ru: 'назад' }
 
 /**
  * Человекочитаемый возраст из секунд: «2y 3mo» / «2г 3мес» / «2年3月».
@@ -110,8 +109,7 @@ export function formatRelative(unixSecs: number | null, lang: TimeLang = 'en'): 
   const diff = Date.now() / 1000 - unixSecs
   if (diff < 0) return formatAge(0, lang)
   const age = formatAge(diff, lang)
-  // zh не использует пробел между значением и послелогом «前».
-  return lang === 'zh' ? `${age}${AGO.zh}` : `${age} ${AGO[lang]}`
+  return `${age} ${AGO[lang]}`
 }
 
 /**
@@ -122,7 +120,7 @@ export function formatRelative(unixSecs: number | null, lang: TimeLang = 'en'): 
 export function formatDuration(secs: number, lang: TimeLang = 'en'): string {
   if (!Number.isFinite(secs) || secs < 0) return NA
   const u = TIME_UNITS[lang]
-  const sep = lang === 'zh' ? '' : ' '
+  const sep = ' '
   if (secs < MINUTE) return `${Math.max(0, Math.floor(secs))}${u.s}`
   if (secs < HOUR) return `${Math.floor(secs / MINUTE)}${u.m}`
   if (secs < DAY) {

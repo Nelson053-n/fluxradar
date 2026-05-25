@@ -115,7 +115,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Зарегистрировать список команд (синяя кнопка меню в клиенте Telegram).
-/// Дефолтные описания — на en; для ru/zh ставим локализованные через scope языка.
+/// Дефолтные описания — на en; для ru ставим локализованные через scope языка.
 async fn register_commands(bot: &Bot) {
     let en = [
         BotCommand::new("start", "Open the menu"),
@@ -141,19 +141,6 @@ async fn register_commands(bot: &Bot) {
     ];
     if let Err(e) = bot.set_my_commands(ru).language_code("ru").await {
         tracing::warn!(?e, "set_my_commands (ru) не удалось");
-    }
-
-    let zh = [
-        BotCommand::new("start", "打开菜单"),
-        BotCommand::new("menu", "打开菜单"),
-        BotCommand::new("link", "跟踪钱包的节点"),
-        BotCommand::new("unlink", "停止跟踪"),
-        BotCommand::new("wallets", "钱包列表"),
-        BotCommand::new("status", "节点概况"),
-        BotCommand::new("help", "帮助"),
-    ];
-    if let Err(e) = bot.set_my_commands(zh).language_code("zh").await {
-        tracing::warn!(?e, "set_my_commands (zh) не удалось");
     }
 }
 
@@ -226,10 +213,6 @@ fn lang_menu() -> InlineKeyboardMarkup {
         vec![InlineKeyboardButton::callback(
             "🇷🇺 Русский",
             format!("{}ru", cb::LANG_SET_PREFIX),
-        )],
-        vec![InlineKeyboardButton::callback(
-            "🇨🇳 中文",
-            format!("{}zh", cb::LANG_SET_PREFIX),
         )],
     ])
 }

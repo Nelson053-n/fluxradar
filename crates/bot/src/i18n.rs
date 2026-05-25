@@ -1,4 +1,4 @@
-//! Локализация бота FluxRadar: ru / en / zh.
+//! Локализация бота FluxRadar: ru / en.
 //!
 //! Язык определяется из `language_code` Telegram при первом контакте и затем
 //! персистится в `chat_settings.lang` (storage::ChatSettingsRepo). Тексты заданы
@@ -10,16 +10,14 @@
 pub enum Lang {
     En,
     Ru,
-    Zh,
 }
 
 impl Lang {
-    /// Код языка для хранения в БД ('en'/'ru'/'zh').
+    /// Код языка для хранения в БД ('en'/'ru').
     pub fn code(self) -> &'static str {
         match self {
             Lang::En => "en",
             Lang::Ru => "ru",
-            Lang::Zh => "zh",
         }
     }
 
@@ -27,17 +25,15 @@ impl Lang {
     pub fn from_code(code: &str) -> Lang {
         match code {
             "ru" => Lang::Ru,
-            "zh" => Lang::Zh,
             _ => Lang::En,
         }
     }
 
-    /// Определить язык из Telegram `language_code` (напр. "ru", "zh-hans",
-    /// "en-US"): префикс "ru" → Ru, "zh" → Zh, иначе En.
+    /// Определить язык из Telegram `language_code` (напр. "ru", "ru-RU",
+    /// "en-US"): префикс "ru" → Ru, иначе En.
     pub fn from_telegram(code: Option<&str>) -> Lang {
         match code {
             Some(c) if c.starts_with("ru") => Lang::Ru,
-            Some(c) if c.starts_with("zh") => Lang::Zh,
             _ => Lang::En,
         }
     }
@@ -47,7 +43,6 @@ impl Lang {
         match self {
             Lang::En => &EN,
             Lang::Ru => &RU,
-            Lang::Zh => &ZH,
         }
     }
 }
@@ -191,48 +186,6 @@ const RU: Strings = Strings {
     not_awaiting_hint: "Откройте меню командой /start, затем нажмите «🔗 Привязать кошелёк», чтобы добавить адрес.",
 };
 
-const ZH: Strings = Strings {
-    welcome: "FluxRadar — Flux 节点监控服务。\n\n要接收节点状态变化的通知（离线、恢复在线、状态变更），需要绑定一个 Flux 地址（格式 t1… 或 t3…）。\n\n绑定后将自动发送关键事件的提醒。\n\n请使用下方菜单。",
-    help: "FluxRadar 命令：\n\n/start、/menu — 打开菜单\n/link <地址> — 跟踪钱包的节点\n/unlink <地址> — 停止跟踪\n/wallets — 已绑定钱包列表\n/status — 活跃节点概况\n/help — 显示本说明\n\n提示：点击「🔗 绑定钱包」，然后直接把 Flux 地址（t1… 或 t3…）作为下一条消息发给我即可，无需命令。",
-
-    btn_link: "🔗 绑定钱包",
-    btn_wallets: "💼 我的钱包",
-    btn_status: "📊 节点状态",
-    btn_notifications: "🔔 通知",
-    btn_language: "🌐 语言",
-    btn_help: "❓ 帮助",
-    btn_back: "⬅️ 返回",
-
-    link_prompt: "请用一条消息发送 Flux 钱包地址（t1… 或 t3…）。例如：\n\nt1Whn4HFFRYPoQqUVYNK2fLoHadBkFzM1Sh",
-    link_usage: "请提供地址：/link <地址>",
-    link_invalid: "地址 {wallet} 看起来不是 Flux 地址（应以 t1 或 t3 开头），请检查。",
-    link_added: "✅ 钱包 {wallet} 已绑定。我会发送其节点的提醒。",
-    link_exists: "钱包 {wallet} 已绑定到此聊天。",
-    unlink_usage: "请提供地址：/unlink <钱包地址>",
-    unlink_removed: "钱包 {wallet} 已解绑。",
-    unlink_absent: "钱包 {wallet} 未绑定到此聊天。",
-
-    wallets_empty: "你还没有绑定任何钱包。请使用 /link <地址>。",
-    wallets_title: "已绑定钱包：",
-    status_empty: "没有已绑定的钱包。请使用 /link <地址>。",
-    status_wallet_header: "📊 钱包",
-    status_no_nodes: "没有活跃节点。",
-    status_fetching: "正在查询节点状态…",
-    status_flux_error: "无法连接 Flux API，请稍后再试",
-
-    notif_title: "通知 — 点击切换：",
-    notif_offline: "节点离线",
-    notif_online: "节点上线",
-    notif_status: "状态变化",
-
-    lang_title: "选择语言：",
-
-    rate_limited: "命令过多，请稍候一分钟。",
-    internal_error: "内部错误，请稍后再试。",
-
-    not_awaiting_hint: "请用 /start 打开菜单，然后点击「🔗 绑定钱包」来添加地址。",
-};
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,7 +194,7 @@ mod tests {
     fn telegram_language_detection() {
         assert_eq!(Lang::from_telegram(Some("ru")), Lang::Ru);
         assert_eq!(Lang::from_telegram(Some("ru-RU")), Lang::Ru);
-        assert_eq!(Lang::from_telegram(Some("zh-hans")), Lang::Zh);
+        assert_eq!(Lang::from_telegram(Some("zh-hans")), Lang::En);
         assert_eq!(Lang::from_telegram(Some("en-US")), Lang::En);
         assert_eq!(Lang::from_telegram(Some("fr")), Lang::En);
         assert_eq!(Lang::from_telegram(None), Lang::En);
@@ -249,7 +202,7 @@ mod tests {
 
     #[test]
     fn code_roundtrip() {
-        for lang in [Lang::En, Lang::Ru, Lang::Zh] {
+        for lang in [Lang::En, Lang::Ru] {
             assert_eq!(Lang::from_code(lang.code()), lang);
         }
         assert_eq!(Lang::from_code("xx"), Lang::En);
