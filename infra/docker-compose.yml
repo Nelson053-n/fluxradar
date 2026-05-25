@@ -1,0 +1,38 @@
+# Локальная разработка: PostgreSQL + Redis.
+# Сами сервисы (api/worker/bot) на dev запускаются через `cargo run -p <bin>`.
+# Production-compose с собранными образами и Nginx — отдельный файл (Этап 1, деплой).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fluxscope_pg
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fluxscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fluxscope}
+      POSTGRES_DB: ${POSTGRES_DB:-fluxscope}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fluxscope}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fluxscope_redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:

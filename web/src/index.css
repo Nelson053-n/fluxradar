@@ -1,0 +1,205 @@
+@import './styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Manrope', sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Атмосферный фон — радиальные свечения (медленный дрейф/пульсация) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(43, 97, 209, 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(79, 215, 232, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(123, 91, 255, 0.10) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, opacity;
+  animation: bgDrift 52s ease-in-out infinite;
+}
+
+/* Сетка на фоне (цвет линии — из токена, чтобы менялся с темой) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--bg-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 80%);
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 80%);
+  will-change: opacity;
+  animation: gridPulse 46s ease-in-out infinite;
+}
+
+/* Плавный дрейф свечений: лёгкий сдвиг + смена прозрачности. */
+@keyframes bgDrift {
+  0%   { transform: translate3d(0, 0, 0) scale(1);        opacity: 0.85; }
+  33%  { transform: translate3d(2.5%, -2%, 0) scale(1.06); opacity: 1; }
+  66%  { transform: translate3d(-2%, 2.5%, 0) scale(1.03); opacity: 0.9; }
+  100% { transform: translate3d(0, 0, 0) scale(1);        opacity: 0.85; }
+}
+
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* Уважаем prefers-reduced-motion — фон статичен. */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
+  }
+}
+
+/* Staggered fadeUp на загрузке дашборда — задержки как в мокапе */
+.stagger > * {
+  animation: fadeUp 0.6s ease-out backwards;
+}
+.stagger-grid > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-grid > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-grid > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-grid > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-spot > *:nth-child(1) { animation-delay: 0.25s; }
+.stagger-spot > *:nth-child(2) { animation-delay: 0.3s; }
+.stagger-spot > *:nth-child(3) { animation-delay: 0.35s; }
+
+/* Логотип-радар FluxRadar — портирован из нового мокапа (docs/Copy of mockup_dashboard.html). */
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(79, 215, 232, 0.25), rgba(43, 97, 209, 0.4));
+  position: relative;
+  box-shadow: 0 0 24px rgba(79, 215, 232, 0.4), inset 0 0 12px rgba(79, 215, 232, 0.2);
+  border: 1px solid rgba(79, 215, 232, 0.5);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* radar sweep — вращающийся сектор развёртки */
+.logo-mark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, var(--flux-cyan) 360deg);
+  border-radius: 50%;
+  animation: radarSweep 4s linear infinite;
+  opacity: 0.6;
+}
+
+/* центральная точка + кольца прицела */
+.logo-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, var(--flux-cyan) 0%, var(--flux-cyan) 14%, transparent 16%),
+    radial-gradient(circle at 50% 50%, transparent 38%, rgba(79, 215, 232, 0.35) 40%, transparent 42%),
+    radial-gradient(circle at 50% 50%, transparent 62%, rgba(79, 215, 232, 0.25) 64%, transparent 66%);
+  border-radius: 50%;
+}
+
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Радар-спиннер — уменьшенная развёртка логотипа на месте значения,
+   пока медленно считается число приложений флота. */
+.radar-spinner {
+  display: inline-block;
+  vertical-align: middle;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at center, rgba(79, 215, 232, 0.25), rgba(43, 97, 209, 0.4));
+  box-shadow: 0 0 16px rgba(79, 215, 232, 0.35), inset 0 0 8px rgba(79, 215, 232, 0.2);
+  border: 1px solid rgba(79, 215, 232, 0.5);
+}
+.radar-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, var(--flux-cyan) 360deg);
+  animation: radarSweep 1.4s linear infinite;
+  opacity: 0.7;
+}
+.radar-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--flux-cyan) 0%, var(--flux-cyan) 14%, transparent 16%),
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(79, 215, 232, 0.3) 58%, transparent 60%);
+}
+
+/* Размеры радар-спиннера: sm для компактных мест, lg для крупного индикатора по центру. */
+.radar-spinner--sm {
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 0 10px rgba(79, 215, 232, 0.3), inset 0 0 6px rgba(79, 215, 232, 0.18);
+}
+.radar-spinner--lg {
+  width: 64px;
+  height: 64px;
+  box-shadow: 0 0 28px rgba(79, 215, 232, 0.4), inset 0 0 14px rgba(79, 215, 232, 0.22);
+}
+
+/* Уважаем prefers-reduced-motion — развёртка радара статична. */
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark::before,
+  .radar-spinner::before {
+    animation: none;
+  }
+}
+
+/* Топ-линия стат-карточек */
+.card-toptrim::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--flux-glow), transparent);
+  opacity: 0.5;
+}
+
+/* Тонкий скроллбар таблицы под тёмную тему */
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 160, 230, 0.18);
+  border-radius: 999px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

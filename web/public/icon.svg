@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGradSmall" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#1a2548"/>
+      <stop offset="60%" stop-color="#0d1530"/>
+      <stop offset="100%" stop-color="#060912"/>
+    </radialGradient>
+
+    <linearGradient id="sweepGradSmall" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4FD7E8" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#4FD7E8" stop-opacity="0.85"/>
+    </linearGradient>
+
+    <radialGradient id="centerGlowSmall" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4FD7E8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#4FD7E8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Круглая обрезка всего содержимого — favicon круглый. -->
+    <clipPath id="roundClip">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#roundClip)">
+  <!-- Фон (круглый за счёт clip) -->
+  <rect width="512" height="512" fill="url(#bgGradSmall)"/>
+
+  <!-- Атмосферные пятна -->
+  <circle cx="120" cy="100" r="180" fill="#2B61D1" opacity="0.20"/>
+
+  <g transform="translate(256 256)">
+    <!-- Основной диск радара — крупный, читаемый -->
+    <circle r="200" fill="#0a1228" stroke="#4FD7E8" stroke-width="6" stroke-opacity="0.7"/>
+
+    <!-- Два кольца — без третьего, чтобы не мылило -->
+    <circle r="140" fill="none" stroke="#4FD7E8" stroke-width="3" stroke-opacity="0.4"/>
+    <circle r="75" fill="none" stroke="#4FD7E8" stroke-width="3" stroke-opacity="0.45"/>
+
+    <!-- Sweep — заполненный сектор 90° -->
+    <path d="M 0 0 L 200 0 A 200 200 0 0 0 0 -200 Z"
+          fill="url(#sweepGradSmall)"
+          transform="rotate(-90)"/>
+
+    <!-- Яркая передняя линия sweep -->
+    <line x1="0" y1="0" x2="200" y2="0"
+          stroke="#4FD7E8" stroke-width="5" stroke-opacity="1"
+          transform="rotate(-90)"/>
+
+    <!-- Центр — крупная яркая точка с свечением -->
+    <circle r="36" fill="url(#centerGlowSmall)" opacity="0.6"/>
+    <circle r="16" fill="#4FD7E8"/>
+    <circle r="7" fill="#EAF0FF"/>
+  </g>
+  </g>
+</svg>

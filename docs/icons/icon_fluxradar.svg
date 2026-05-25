@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Фоновый градиент: глубокий индиго → синий -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#1a2548"/>
+      <stop offset="60%" stop-color="#0d1530"/>
+      <stop offset="100%" stop-color="#060912"/>
+    </radialGradient>
+
+    <!-- Радарный sweep: конический градиент циан → прозрачный -->
+    <linearGradient id="sweepGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4FD7E8" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#4FD7E8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#4FD7E8" stop-opacity="0.75"/>
+    </linearGradient>
+
+    <!-- Свечение для центральной точки -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4FD7E8" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#4FD7E8" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#4FD7E8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Свечение по краю радара -->
+    <radialGradient id="rimGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="#4FD7E8" stop-opacity="0"/>
+      <stop offset="95%" stop-color="#4FD7E8" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#4FD7E8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Мягкая тень для глубины -->
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Фон со скруглением — Telegram сам обрежет в круг,
+       но многие клиенты показывают квадрат с скругленными углами, так что закрашиваем всё -->
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+
+  <!-- Атмосферное свечение слева сверху (как в мокапе) -->
+  <circle cx="120" cy="100" r="220" fill="#2B61D1" opacity="0.18"/>
+  <circle cx="420" cy="430" r="180" fill="#7B5BFF" opacity="0.10"/>
+
+  <!-- Центр всех радарных элементов: (256, 256), радиус = 200 -->
+  <g transform="translate(256 256)">
+
+    <!-- Внешнее свечение по краю радара -->
+    <circle r="210" fill="url(#rimGlow)"/>
+
+    <!-- Основной круг радара (background) -->
+    <circle r="200" fill="#0a1228" stroke="#4FD7E8" stroke-width="3" stroke-opacity="0.6"/>
+
+    <!-- Внутренний blur-gradient: имитирует объём -->
+    <circle r="200" fill="url(#centerGlow)" opacity="0.12"/>
+
+    <!-- Концентрические кольца -->
+    <circle r="160" fill="none" stroke="#4FD7E8" stroke-width="1.5" stroke-opacity="0.35"/>
+    <circle r="115" fill="none" stroke="#4FD7E8" stroke-width="1.5" stroke-opacity="0.30"/>
+    <circle r="65"  fill="none" stroke="#4FD7E8" stroke-width="1.5" stroke-opacity="0.40"/>
+
+    <!-- Крестовина (тонкие линии прицела) -->
+    <line x1="-200" y1="0" x2="200" y2="0" stroke="#4FD7E8" stroke-width="1" stroke-opacity="0.22" stroke-dasharray="2 4"/>
+    <line x1="0" y1="-200" x2="0" y2="200" stroke="#4FD7E8" stroke-width="1" stroke-opacity="0.22" stroke-dasharray="2 4"/>
+
+    <!-- Радарный sweep — заполненный сектор (имитация мгновенной развёртки) -->
+    <!-- Сектор 60° сверху-справа (от 12ч к 2ч) для динамики -->
+    <path d="M 0 0 L 200 0 A 200 200 0 0 0 100 -173.2 Z"
+          fill="url(#sweepGrad)" opacity="0.85"
+          transform="rotate(-90)"/>
+
+    <!-- Передний край sweep — яркая линия -->
+    <line x1="0" y1="0" x2="200" y2="0"
+          stroke="#4FD7E8" stroke-width="2.5" stroke-opacity="0.95"
+          transform="rotate(-90)"
+          filter="url(#softGlow)"/>
+
+    <!-- "Пойманные" объекты (ноды) на радаре — несколько ярких точек -->
+    <!-- Большая точка (Stratus) -->
+    <circle cx="55" cy="-90" r="6" fill="#4FD7E8" filter="url(#softGlow)"/>
+    <circle cx="55" cy="-90" r="11" fill="#4FD7E8" opacity="0.25"/>
+
+    <!-- Средняя точка (Nimbus) -->
+    <circle cx="-75" cy="60" r="5" fill="#5B8DEF" filter="url(#softGlow)"/>
+    <circle cx="-75" cy="60" r="10" fill="#5B8DEF" opacity="0.25"/>
+
+    <!-- Малая точка (Cumulus) -->
+    <circle cx="120" cy="105" r="4" fill="#4FD7E8" opacity="0.85"/>
+
+    <!-- Ещё одна, дальняя -->
+    <circle cx="-130" cy="-70" r="4" fill="#4FD7E8" opacity="0.75"/>
+
+    <!-- Алерт-точка — красная, "проблемная нода" — для смысловой нагрузки -->
+    <circle cx="-30" cy="135" r="5" fill="#FF6B6B" filter="url(#softGlow)"/>
+    <circle cx="-30" cy="135" r="10" fill="#FF6B6B" opacity="0.25"/>
+
+    <!-- Центральная точка — ярчайший элемент -->
+    <circle r="20" fill="url(#centerGlow)"/>
+    <circle r="9" fill="#4FD7E8" filter="url(#softGlow)"/>
+    <circle r="4" fill="#EAF0FF"/>
+
+  </g>
+</svg>

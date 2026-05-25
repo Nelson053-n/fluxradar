@@ -1,0 +1,15 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Окружение / секреты (§9)
+.env
+*.local
+
+# Node / фронт
+web/node_modules
+web/dist
+node_modules
+
+# Прочее
+.DS_Store
