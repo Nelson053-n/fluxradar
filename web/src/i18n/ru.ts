@@ -66,7 +66,7 @@ const ru: Record<Keys, string> = {
   'pa.fees': 'Комиссия',
 
   // Totals
-  'totals.mined': 'Всего намайнено',
+  'totals.mined': 'Всего',
   'totals.claimed': 'Получено',
   'totals.claimable': 'Доступно к получению',
   'totals.note': 'оценка по возрасту нод',
