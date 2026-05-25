@@ -78,7 +78,7 @@ export function NodeDetailDrawer({ node, onClose }: NodeDetailDrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-label={t('drawer.title')}
-        className="relative flex h-full w-full max-w-md animate-slideInRight flex-col border-l border-border bg-[var(--bg-card)] shadow-[-20px_0_60px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+        className="relative flex h-full w-full max-w-md animate-slideInRight flex-col border-l border-border bg-[var(--bg-elevated)] shadow-[-20px_0_60px_rgba(0,0,0,0.4)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-5">

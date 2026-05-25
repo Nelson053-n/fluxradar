@@ -73,7 +73,7 @@ function PrivacyModal({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-label={t('privacy.title')}
-        className="relative w-full max-w-md animate-fadeIn rounded-2xl border border-border bg-[var(--bg-card)] p-6 shadow-glow backdrop-blur-2xl"
+        className="relative w-full max-w-md animate-fadeIn rounded-2xl border border-border bg-[var(--bg-elevated)] p-6 shadow-glow"
       >
         <div className="mb-3 flex items-center justify-between">
           <div className="text-lg font-bold text-text-primary">{t('privacy.title')}</div>
