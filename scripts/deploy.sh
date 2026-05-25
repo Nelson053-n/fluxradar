@@ -6,7 +6,16 @@
 # Лог: /tmp/flux-deploy.log. Запуск таймером (cron/systemd) от пользователя nel.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+# Самокопирование: git reset/pull ниже может перезаписать ЭТОТ файл на ходу
+# (bash читает скрипт построчно). Копируем себя в /tmp и работаем оттуда.
+if [ "${FLUX_DEPLOY_DETACHED:-}" != "1" ]; then
+  cp "${BASH_SOURCE[0]}" /tmp/flux-deploy-running.sh 2>/dev/null || exit 1
+  chmod +x /tmp/flux-deploy-running.sh
+  FLUX_DEPLOY_DETACHED=1 ROOT="$ROOT" exec bash /tmp/flux-deploy-running.sh
+fi
+
 cd "$ROOT" || exit 1
 LOG=/tmp/flux-deploy.log
 log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
