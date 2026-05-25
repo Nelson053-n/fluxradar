@@ -122,7 +122,7 @@ function DonateCard() {
   }
 
   return (
-    <div className="card-toptrim mt-16 overflow-hidden rounded-2xl border border-[rgba(79,215,232,0.25)] bg-gradient-to-br from-[rgba(43,97,209,0.12)] to-[rgba(79,215,232,0.06)] p-6 backdrop-blur-xl">
+    <div className="card-toptrim relative mt-16 overflow-hidden rounded-2xl border border-[rgba(79,215,232,0.25)] bg-gradient-to-br from-[rgba(43,97,209,0.12)] to-[rgba(79,215,232,0.06)] p-6 backdrop-blur-xl">
       <div className="mb-2 flex items-center gap-2 text-base font-bold text-text-primary">
         <span className="text-flux-cyan">♥</span>
         {t('donate.title')}
@@ -130,45 +130,34 @@ function DonateCard() {
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-text-secondary">
         {t('donate.text')}
       </p>
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        {/* Слева внизу: две цифры в колонку — всего посетителей / за сутки. */}
-        <div className="flex flex-col gap-2">
-          <VisitorStat
-            label={t('donate.visitorsTotal')}
-            value={visitors ? formatInt(visitors.total) : '—'}
-          />
-          <VisitorStat
-            label={t('donate.visitorsToday')}
-            value={visitors ? formatInt(visitors.today) : '—'}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
-            {t('donate.address')}
-          </span>
-          <code className="min-w-0 break-all rounded-lg border border-border bg-subtle px-3 py-2 font-mono text-[13px] text-text-primary">
-            {DONATE_ADDRESS}
-          </code>
-          <button
-            type="button"
-            onClick={copy}
-            className="shrink-0 rounded-lg border border-border bg-subtle px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:bg-subtle-hover hover:text-text-primary"
-          >
-            {copied ? t('donate.copied') : t('donate.copy')}
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+          {t('donate.address')}
+        </span>
+        <code className="min-w-0 break-all rounded-lg border border-border bg-subtle px-3 py-2 font-mono text-[13px] text-text-primary">
+          {DONATE_ADDRESS}
+        </code>
+        <button
+          type="button"
+          onClick={copy}
+          className="shrink-0 rounded-lg border border-border bg-subtle px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:bg-subtle-hover hover:text-text-primary"
+        >
+          {copied ? t('donate.copied') : t('donate.copy')}
+        </button>
       </div>
-    </div>
-  )
-}
 
-/** Одна метрика посетителей: число (моно, крупно) + подпись под ним. */
-function VisitorStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <span className="font-mono text-lg font-semibold text-text-primary">{value}</span>
-      <span className="text-[11px] uppercase tracking-[0.08em] text-text-dim">{label}</span>
+      {/* Счётчик посетителей — в правом нижнем углу, едва заметный (цвет близок к плашке).
+          При наведении проявляется. */}
+      {visitors && (
+        <div className="absolute bottom-2 right-3 flex flex-col items-end gap-0.5 text-[10px] leading-tight text-text-dim opacity-40 transition-opacity hover:opacity-90">
+          <span>
+            {t('donate.visitorsTotal')}: <span className="font-mono">{formatInt(visitors.total)}</span>
+          </span>
+          <span>
+            {t('donate.visitorsToday')}: <span className="font-mono">{formatInt(visitors.today)}</span>
+          </span>
+        </div>
+      )}
     </div>
   )
 }
