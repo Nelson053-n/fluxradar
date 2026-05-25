@@ -146,6 +146,8 @@ const en = {
   'donate.address': 'FLUX address',
   'donate.copy': 'Copy address',
   'donate.copied': 'Copied!',
+  'donate.visitorsTotal': 'Total visitors',
+  'donate.visitorsToday': 'Visitors today',
 
   // Privacy modal
   'privacy.title': 'Privacy',

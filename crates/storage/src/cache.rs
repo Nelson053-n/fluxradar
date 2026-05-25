@@ -49,6 +49,51 @@ pub async fn ping(pool: &RedisPool) -> Result<(), crate::StorageError> {
     Ok(())
 }
 
+/// Ключ HLL уникальных посетителей за всё время.
+const VISITORS_TOTAL_KEY: &str = "visitors:total";
+/// За сутки HLL хранится 48ч — на стыке дней «вчера» ещё доступен для отладки.
+const VISITORS_DAY_TTL_SECS: i64 = 172_800;
+
+/// Учесть посетителя (по IP) и вернуть `(total, today)` уникальных.
+///
+/// Считаем через HyperLogLog (PFADD/PFCOUNT): компактно и достаточно точно для
+/// наших объёмов. Ключ суток — `visitors:day:<UTC-дата>` с TTL 48ч.
+pub async fn track_visitor(
+    pool: &RedisPool,
+    ip: &str,
+    utc_date: &str,
+) -> Result<(u64, u64), crate::StorageError> {
+    let day_key = format!("visitors:day:{utc_date}");
+    let mut conn = pool.get().await.map_err(map_pool_err)?;
+
+    let _: () = redis::cmd("PFADD")
+        .arg(VISITORS_TOTAL_KEY)
+        .arg(ip)
+        .query_async(&mut *conn)
+        .await?;
+    let _: () = redis::cmd("PFADD")
+        .arg(&day_key)
+        .arg(ip)
+        .query_async(&mut *conn)
+        .await?;
+    // TTL обновляем каждый раз — день «живёт» пока на него заходят + 48ч.
+    let _: () = redis::cmd("EXPIRE")
+        .arg(&day_key)
+        .arg(VISITORS_DAY_TTL_SECS)
+        .query_async(&mut *conn)
+        .await?;
+
+    let total: u64 = redis::cmd("PFCOUNT")
+        .arg(VISITORS_TOTAL_KEY)
+        .query_async(&mut *conn)
+        .await?;
+    let today: u64 = redis::cmd("PFCOUNT")
+        .arg(&day_key)
+        .query_async(&mut *conn)
+        .await?;
+    Ok((total, today))
+}
+
 fn map_pool_err(e: bb8::RunError<redis::RedisError>) -> crate::StorageError {
     match e {
         bb8::RunError::User(err) => crate::StorageError::Redis(err),

@@ -9,6 +9,12 @@ export interface PriceResponse {
   change_24h: number
 }
 
+/** Счётчик уникальных посетителей сайта: всего и за сутки. */
+export interface VisitorStats {
+  total: number
+  today: number
+}
+
 /** Одна точка истории цены: unix-секунды + цена в USD. */
 export interface PricePoint {
   t: number
@@ -172,6 +178,11 @@ export function fetchPrice(signal?: AbortSignal): Promise<PriceResponse> {
 /** История цены FLUX за год — тянется лениво при первом ховере на цену. */
 export function fetchPriceHistory(signal?: AbortSignal): Promise<PriceHistoryResponse> {
   return getJson<PriceHistoryResponse>('/api/v1/network/price/history', signal)
+}
+
+/** Учесть текущего посетителя и получить счётчики (всего / за сутки). */
+export function fetchVisitorStats(signal?: AbortSignal): Promise<VisitorStats> {
+  return getJson<VisitorStats>('/api/v1/stats/visitors', signal)
 }
 
 export function fetchWalletSummary(

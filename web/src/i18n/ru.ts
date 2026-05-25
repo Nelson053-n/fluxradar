@@ -147,6 +147,8 @@ const ru: Record<Keys, string> = {
   'donate.address': 'FLUX-адрес',
   'donate.copy': 'Скопировать адрес',
   'donate.copied': 'Скопировано!',
+  'donate.visitorsTotal': 'Всего посетителей',
+  'donate.visitorsToday': 'За сутки',
 
   // Privacy modal
   'privacy.title': 'Приватность',

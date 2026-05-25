@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::get,
     Json, Router,
@@ -49,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/ready", get(ready))
         .route("/api/v1/network/price", get(network_price))
         .route("/api/v1/network/price/history", get(price_history))
+        .route("/api/v1/stats/visitors", get(visitor_stats))
         .route("/api/v1/wallet/{address}/summary", get(wallet_summary))
         .route("/api/v1/wallet/{address}/nodes", get(wallet_nodes))
         .route("/api/v1/wallet/{address}/apps", get(wallet_apps))
@@ -122,6 +123,43 @@ async fn price_history(State(state): State<Arc<AppState>>) -> impl IntoResponse 
         }
         Err(err) => upstream_error(err),
     }
+}
+
+/// Счётчик уникальных посетителей сайта: `{total, today}`.
+///
+/// Фронт дёргает при загрузке — IP учитывается в HLL (Redis). За nginx-прокси
+/// реальный адрес берём из `X-Forwarded-For` (первый) / `X-Real-IP`.
+async fn visitor_stats(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let ip = client_ip(&headers);
+    let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    match cache::track_visitor(&state.redis, &ip, &date).await {
+        Ok((total, today)) => (StatusCode::OK, Json(json!({"total": total, "today": today}))),
+        Err(e) => {
+            warn!(?e, "не удалось учесть посетителя");
+            (StatusCode::OK, Json(json!({"total": 0, "today": 0})))
+        }
+    }
+}
+
+/// Реальный IP клиента за прокси: первый в `X-Forwarded-For`, иначе `X-Real-IP`,
+/// иначе "unknown" (все unknown схлопнутся в одного — приемлемо для счётчика).
+fn client_ip(headers: &HeaderMap) -> String {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_owned())
+        })
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// Сводка по кошельку (§4.1, §8) — с кэшем в Redis.

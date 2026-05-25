@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useT, type Keys } from '../i18n/store'
+import { fetchVisitorStats, type VisitorStats } from '../api/client'
+import { formatInt } from '../lib/format'
 
 // Внешние ссылки футера (открываются в новой вкладке). Privacy — модалка, не ссылка.
 const EXTERNAL_LINKS: { labelKey: Keys; href: string }[] = [
@@ -92,10 +94,22 @@ function PrivacyModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Блок донатов: призыв + Flux-адрес с кнопкой копирования. */
+/** Блок донатов: призыв + Flux-адрес с кнопкой копирования + счётчик посетителей. */
 function DonateCard() {
   const t = useT()
   const [copied, setCopied] = useState(false)
+  const [visitors, setVisitors] = useState<VisitorStats | null>(null)
+
+  // Учитываем посетителя и получаем счётчики (всего / за сутки) один раз при монтировании.
+  useEffect(() => {
+    const ctrl = new AbortController()
+    fetchVisitorStats(ctrl.signal)
+      .then(setVisitors)
+      .catch(() => {
+        // счётчик не критичен — при ошибке просто не показываем
+      })
+    return () => ctrl.abort()
+  }, [])
 
   async function copy() {
     try {
@@ -116,21 +130,45 @@ function DonateCard() {
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-text-secondary">
         {t('donate.text')}
       </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
-          {t('donate.address')}
-        </span>
-        <code className="min-w-0 break-all rounded-lg border border-border bg-subtle px-3 py-2 font-mono text-[13px] text-text-primary">
-          {DONATE_ADDRESS}
-        </code>
-        <button
-          type="button"
-          onClick={copy}
-          className="shrink-0 rounded-lg border border-border bg-subtle px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:bg-subtle-hover hover:text-text-primary"
-        >
-          {copied ? t('donate.copied') : t('donate.copy')}
-        </button>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        {/* Слева внизу: две цифры в колонку — всего посетителей / за сутки. */}
+        <div className="flex flex-col gap-2">
+          <VisitorStat
+            label={t('donate.visitorsTotal')}
+            value={visitors ? formatInt(visitors.total) : '—'}
+          />
+          <VisitorStat
+            label={t('donate.visitorsToday')}
+            value={visitors ? formatInt(visitors.today) : '—'}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+            {t('donate.address')}
+          </span>
+          <code className="min-w-0 break-all rounded-lg border border-border bg-subtle px-3 py-2 font-mono text-[13px] text-text-primary">
+            {DONATE_ADDRESS}
+          </code>
+          <button
+            type="button"
+            onClick={copy}
+            className="shrink-0 rounded-lg border border-border bg-subtle px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:bg-subtle-hover hover:text-text-primary"
+          >
+            {copied ? t('donate.copied') : t('donate.copy')}
+          </button>
+        </div>
       </div>
+    </div>
+  )
+}
+
+/** Одна метрика посетителей: число (моно, крупно) + подпись под ним. */
+function VisitorStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="font-mono text-lg font-semibold text-text-primary">{value}</span>
+      <span className="text-[11px] uppercase tracking-[0.08em] text-text-dim">{label}</span>
     </div>
   )
 }
