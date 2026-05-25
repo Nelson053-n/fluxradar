@@ -211,8 +211,18 @@ function App() {
   }, [])
 
   // Якорная навигация Header → плавный скролл к секции.
+  // Контент выше (Spotlight/Hosted apps) дозагружается асинхронно и меняет высоту,
+  // из-за чего одиночный scrollIntoView не доезжает (цель уезжает вниз после старта).
+  // Поэтому повторяем скролл несколько раз по мере устаканивания макета.
   const handleNavigate = useCallback((sectionId: string) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const el = document.getElementById(sectionId)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Корректирующие проскроллы после возможных изменений высоты выше секции.
+    const delays = [120, 320, 600]
+    delays.forEach((d) =>
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), d),
+    )
   }, [])
 
   // Scroll-spy активен только когда секции реально в DOM (данные загружены).
