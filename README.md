@@ -115,6 +115,14 @@ on known values.
 - The Telegram bot token lives only in the server's `.env` (git-ignored); the repo ships a placeholder
   `.env.example`.
 
+## Support
+
+FluxRadar is free and self-hosted. If it helps you, a donation in FLUX keeps development going:
+
+```
+t1TfYPwJdZvKu6yHccqfJxLAsCKoZ9nfevr
+```
+
 ## License
 
 [MIT](LICENSE). The code is written from scratch; the original Fluxnode project was used only as a
