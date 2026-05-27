@@ -291,16 +291,22 @@ function App() {
                   value={formatNum(data.summary.balance.flux, 2)}
                   sub={
                     <span className="flex flex-col gap-0.5">
-                      <span className="text-text-secondary">
-                        {t('stat.walletBalance.sub', {
-                          usd: formatUsd(usdValue(data.summary.balance.flux, data.summary.balance.usd)),
-                        })}
-                      </span>
                       {paClaimable > 0 && (
                         <span className="text-[11px] text-text-dim">
                           {t('stat.walletBalance.pa', { flux: formatNum(paClaimable, 2) })}
                         </span>
                       )}
+                      {/* USD за общий объём: баланс + доступное к получению по PA. */}
+                      <span className="text-text-secondary">
+                        {t('stat.walletBalance.sub', {
+                          usd: formatUsd(
+                            usdValue(
+                              data.summary.balance.flux + paClaimable,
+                              data.summary.balance.usd,
+                            ),
+                          ),
+                        })}
+                      </span>
                     </span>
                   }
                 />
