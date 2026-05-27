@@ -31,6 +31,7 @@ const ru: Record<Keys, string> = {
   'stat.totalNodes.sub': 'активны в сети',
   'stat.walletBalance': 'Баланс кошелька',
   'stat.walletBalance.sub': 'FLUX · ≈ {usd} USD',
+  'stat.walletBalance.pa': '+ {flux} FLUX к получению с парал. чейнов',
   'stat.fleetUptime': 'Аптайм нод',
   'stat.benchPassed': 'Бенчмарк пройден',
   'stat.benchPassed.sub': 'нод прошли бенчмарк',

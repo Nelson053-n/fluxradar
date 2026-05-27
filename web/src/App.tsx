@@ -223,6 +223,9 @@ function App() {
   const usdValue = (flux: number, fallbackUsd: number) =>
     priceUsd != null ? flux * priceUsd : fallbackUsd
 
+  // Суммарно доступно к получению (claimable) по всем параллельным чейнам, FLUX.
+  const paClaimable = (data?.summary.pa_chains ?? []).reduce((s, c) => s + c.claimable, 0)
+
   // Значение для плашек, зависящих от медленного подсчёта приложений:
   // спиннер пока считаем (запрос в полёте), число когда готово, «—» при ошибке.
   const appsValue = (pick: (a: WalletAppsResponse) => number) => {
@@ -287,10 +290,17 @@ function App() {
                   icon={<WalletIcon />}
                   value={formatNum(data.summary.balance.flux, 2)}
                   sub={
-                    <span className="text-text-secondary">
-                      {t('stat.walletBalance.sub', {
-                        usd: formatUsd(usdValue(data.summary.balance.flux, data.summary.balance.usd)),
-                      })}
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-text-secondary">
+                        {t('stat.walletBalance.sub', {
+                          usd: formatUsd(usdValue(data.summary.balance.flux, data.summary.balance.usd)),
+                        })}
+                      </span>
+                      {paClaimable > 0 && (
+                        <span className="text-[11px] text-text-dim">
+                          {t('stat.walletBalance.pa', { flux: formatNum(paClaimable, 2) })}
+                        </span>
+                      )}
                     </span>
                   }
                 />

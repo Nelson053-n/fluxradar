@@ -30,6 +30,7 @@ const en = {
   'stat.totalNodes.sub': 'active in the network',
   'stat.walletBalance': 'Wallet Balance',
   'stat.walletBalance.sub': 'FLUX · ≈ {usd} USD',
+  'stat.walletBalance.pa': '+ {flux} FLUX claimable across parallel chains',
   'stat.fleetUptime': 'Nodes Uptime',
   'stat.benchPassed': 'Bench Passed',
   'stat.benchPassed.sub': 'nodes passed benchmark',
