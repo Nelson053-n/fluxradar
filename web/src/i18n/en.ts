@@ -57,11 +57,9 @@ const en = {
 
   // Calculator
   'calc.title': 'Earnings Calculator',
-  'calc.subtitle': 'Set the node count per tier — see fleet collateral and projected earnings.',
   'calc.cumulus': 'Cumulus',
   'calc.nimbus': 'Nimbus',
   'calc.stratus': 'Stratus',
-  'calc.collateralPer': '{flux} FLUX collateral each',
   'calc.collateral': 'Fleet collateral',
   'calc.earnings': 'Projected earnings',
 

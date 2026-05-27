@@ -58,11 +58,9 @@ const ru: Record<Keys, string> = {
 
   // Calculator
   'calc.title': 'Калькулятор доходности',
-  'calc.subtitle': 'Задайте число нод по тирам — увидите стоимость флота и прогноз доходности.',
   'calc.cumulus': 'Cumulus',
   'calc.nimbus': 'Nimbus',
   'calc.stratus': 'Stratus',
-  'calc.collateralPer': 'залог {flux} FLUX за ноду',
   'calc.collateral': 'Стоимость флота',
   'calc.earnings': 'Прогноз доходности',
 

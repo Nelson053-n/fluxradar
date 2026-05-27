@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChartIcon } from './icons'
 import { cardBase } from './cardStyles'
 import { formatFlux, formatNum, formatUsd, formatUsdSmart } from '../lib/format'
-import { calcEarnings, COLLATERAL, type TierCounts, type TierKey } from '../lib/earningsCalc'
+import { calcEarnings, type TierCounts, type TierKey } from '../lib/earningsCalc'
 import { useT, type Keys } from '../i18n/store'
 
 interface CalculatorProps {
@@ -63,7 +63,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
 
   return (
     <div className={cardBase}>
-      <div className="mb-[18px] flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-dim">
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-dim">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(79,215,232,0.2)] bg-gradient-to-br from-[rgba(43,97,209,0.2)] to-[rgba(79,215,232,0.15)] text-flux-cyan">
           <ChartIcon />
         </span>
@@ -72,56 +72,50 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
           {t('earnings.estimate')}
         </span>
       </div>
-      <div className="mb-6 text-[13px] text-text-secondary">{t('calc.subtitle')}</div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Слева: ввод кол-ва нод + стоимость флота */}
-        <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-2">
+        {/* Слева: ввод кол-ва нод (тир в одну строку) + стоимость флота */}
+        <div className="flex flex-col gap-2.5">
           {TIER_ROWS.map(({ tier, labelKey, accent }) => (
-            <div key={tier}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className={`text-sm font-semibold ${accent}`}>{t(labelKey)}</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={counts[tier]}
-                  onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                  className="w-20 rounded-lg border border-border bg-subtle px-2.5 py-1.5 text-right font-mono text-sm text-text-primary focus:border-border-strong focus:outline-none"
-                />
-              </div>
+            <div key={tier} className="flex items-center gap-3">
+              <span className={`w-20 shrink-0 text-sm font-semibold ${accent}`}>{t(labelKey)}</span>
               <input
                 type="range"
                 min={0}
                 max={SLIDER_MAX}
                 value={Math.min(counts[tier], SLIDER_MAX)}
                 onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                className="w-full accent-flux-primary"
+                className="min-w-0 flex-1 accent-flux-primary"
               />
-              <div className="mt-1 text-[11px] text-text-dim">
-                {t('calc.collateralPer', {
-                  flux: formatNum(COLLATERAL[tier], 0),
-                })}
-              </div>
+              <input
+                type="number"
+                min={0}
+                value={counts[tier]}
+                onChange={(e) => setTier(tier, e.target.valueAsNumber)}
+                className="w-16 shrink-0 rounded-lg border border-border bg-subtle px-2 py-1 text-right font-mono text-sm text-text-primary focus:border-border-strong focus:outline-none"
+              />
             </div>
           ))}
 
-          <div className="mt-2 rounded-xl border border-border bg-subtle px-4 py-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+          <div className="mt-1 flex items-baseline justify-between gap-3 rounded-xl border border-border bg-subtle px-4 py-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
               {t('calc.collateral')}
-            </div>
-            <div className="mt-1 font-mono text-2xl font-extrabold tracking-[-0.03em] text-text-primary">
-              {formatFlux(r.collateralFlux)}
-              <span className="ml-1.5 text-[13px] font-semibold text-text-dim">FLUX</span>
-            </div>
-            <div className="mt-0.5 font-mono text-[13px] text-text-secondary">
-              ≈ {formatUsd(r.collateralUsd)}
-            </div>
+            </span>
+            <span className="text-right">
+              <span className="font-mono text-lg font-extrabold tracking-[-0.03em] text-text-primary">
+                {formatFlux(r.collateralFlux)}
+                <span className="ml-1 text-[12px] font-semibold text-text-dim">FLUX</span>
+              </span>
+              <span className="ml-2 font-mono text-[13px] text-text-secondary">
+                ≈ {formatUsd(r.collateralUsd)}
+              </span>
+            </span>
           </div>
         </div>
 
-        {/* Справа: период + доходность + APY */}
-        <div className="flex flex-col">
-          <div role="tablist" className="mb-4 inline-flex self-start rounded-xl border border-border bg-subtle p-1">
+        {/* Справа: период + доходность + APY (компактно в ряд) */}
+        <div className="flex flex-col gap-3">
+          <div role="tablist" className="inline-flex self-start rounded-xl border border-border bg-subtle p-1">
             {PERIODS.map(({ period: p, labelKey }) => {
               const active = p === period
               return (
@@ -143,23 +137,26 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
             })}
           </div>
 
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
-            {t('calc.earnings')}
-          </div>
-          <div className="mt-1 font-mono text-[32px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[40px]">
-            {formatFlux(periodFlux)}
-            <span className="ml-1.5 text-[15px] font-semibold text-text-dim">FLUX</span>
-          </div>
-          <div className="mt-2 font-mono text-[13px] text-text-secondary">
-            ≈ {formatUsdSmart(periodUsd)}
-          </div>
-
-          <div className="mt-auto pt-6">
-            <div className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.03em] text-flux-cyan md:text-[30px]">
-              {formatNum(r.apyPercent, 1)}%
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+                {t('calc.earnings')}
+              </div>
+              <div className="mt-1 font-mono text-[28px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[32px]">
+                {formatFlux(periodFlux)}
+                <span className="ml-1.5 text-[14px] font-semibold text-text-dim">FLUX</span>
+              </div>
+              <div className="mt-1 font-mono text-[13px] text-text-secondary">
+                ≈ {formatUsdSmart(periodUsd)}
+              </div>
             </div>
-            <div className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-dim">
-              {t('earnings.apy')}
+            <div className="text-right">
+              <div className="font-mono text-[24px] font-extrabold leading-none tracking-[-0.03em] text-flux-cyan md:text-[26px]">
+                {formatNum(r.apyPercent, 1)}%
+              </div>
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+                {t('earnings.apy')}
+              </div>
             </div>
           </div>
         </div>
