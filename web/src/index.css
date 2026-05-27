@@ -203,3 +203,39 @@ body::after {
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Ползунки калькулятора — трек с градиентом тира (--track задаётся инлайн),
+   как полосы разбивки по тирам (TierCard). Бегунок — белый кружок со свечением. */
+.tier-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track, var(--flux-primary));
+  cursor: pointer;
+}
+.tier-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(43, 97, 209, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.tier-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(43, 97, 209, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.tier-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track, var(--flux-primary));
+}

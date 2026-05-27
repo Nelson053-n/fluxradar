@@ -20,10 +20,11 @@ const PERIODS: { period: Period; labelKey: Keys }[] = [
   { period: 'yearly', labelKey: 'earnings.period.year' },
 ]
 
-const TIER_ROWS: { tier: TierKey; labelKey: Keys; accent: string }[] = [
-  { tier: 'cumulus', labelKey: 'calc.cumulus', accent: 'text-flux-cyan' },
-  { tier: 'nimbus', labelKey: 'calc.nimbus', accent: 'text-flux-glow' },
-  { tier: 'stratus', labelKey: 'calc.stratus', accent: 'text-flux-purple' },
+// Градиент трека ползунка — как у полос разбивки по тирам (TierCard).
+const TIER_ROWS: { tier: TierKey; labelKey: Keys; accent: string; track: string }[] = [
+  { tier: 'cumulus', labelKey: 'calc.cumulus', accent: 'text-flux-cyan', track: 'linear-gradient(90deg, var(--flux-cyan), rgba(79,215,232,0.4))' },
+  { tier: 'nimbus', labelKey: 'calc.nimbus', accent: 'text-flux-glow', track: 'linear-gradient(90deg, var(--flux-glow), rgba(91,141,239,0.4))' },
+  { tier: 'stratus', labelKey: 'calc.stratus', accent: 'text-flux-purple', track: 'linear-gradient(90deg, var(--flux-purple), rgba(123,91,255,0.4))' },
 ]
 
 const SLIDER_MAX = 100
@@ -75,7 +76,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
       <div className="grid grid-cols-1 items-center gap-x-8 gap-y-5 lg:grid-cols-2">
         {/* Слева: ввод кол-ва нод — длинный ползунок + контрастное поле */}
         <div className="flex flex-col gap-3">
-          {TIER_ROWS.map(({ tier, labelKey, accent }) => (
+          {TIER_ROWS.map(({ tier, labelKey, accent, track }) => (
             <div key={tier} className="flex items-center gap-3">
               <span className={`w-[68px] shrink-0 text-sm font-semibold ${accent}`}>{t(labelKey)}</span>
               <input
@@ -84,7 +85,8 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
                 max={SLIDER_MAX}
                 value={Math.min(counts[tier], SLIDER_MAX)}
                 onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                className="min-w-0 flex-1 accent-flux-primary"
+                style={{ ['--track' as string]: track }}
+                className="tier-slider min-w-0 flex-1"
               />
               <input
                 type="number"
