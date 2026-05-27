@@ -72,35 +72,38 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-2">
-        {/* Слева: ввод кол-ва нод (тир в одну строку) + стоимость флота */}
-        <div className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-1 items-center gap-x-8 gap-y-5 lg:grid-cols-2">
+        {/* Слева: ввод кол-ва нод — длинный ползунок + контрастное поле */}
+        <div className="flex flex-col gap-3">
           {TIER_ROWS.map(({ tier, labelKey, accent }) => (
             <div key={tier} className="flex items-center gap-3">
-              <span className={`w-20 shrink-0 text-sm font-semibold ${accent}`}>{t(labelKey)}</span>
+              <span className={`w-[68px] shrink-0 text-sm font-semibold ${accent}`}>{t(labelKey)}</span>
               <input
                 type="range"
                 min={0}
                 max={SLIDER_MAX}
                 value={Math.min(counts[tier], SLIDER_MAX)}
                 onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                className="w-28 shrink-0 accent-flux-primary"
+                className="min-w-0 flex-1 accent-flux-primary"
               />
               <input
                 type="number"
                 min={0}
                 value={counts[tier]}
                 onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                className="w-16 shrink-0 rounded-lg border border-border bg-subtle px-2 py-1 text-right font-mono text-sm text-text-primary focus:border-border-strong focus:outline-none"
+                className="w-16 shrink-0 rounded-lg border border-border bg-[var(--bg-elevated)] px-2 py-1 text-right font-mono text-sm font-semibold text-text-primary focus:border-border-strong focus:outline-none"
               />
             </div>
           ))}
+        </div>
 
-          <div className="mt-1 flex items-baseline justify-between gap-3 rounded-xl border border-border bg-subtle px-4 py-2.5">
+        {/* Справа: стоимость нод (сверху) → период + доходность + APY */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
               {t('calc.collateral')}
             </span>
-            <span className="text-right">
+            <span>
               <span className="font-mono text-lg font-extrabold tracking-[-0.03em] text-text-primary">
                 {formatFlux(r.collateralFlux)}
                 <span className="ml-1 text-[12px] font-semibold text-text-dim">FLUX</span>
@@ -110,38 +113,31 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
               </span>
             </span>
           </div>
-        </div>
-
-        {/* Справа: период + доходность + APY (компактно в ряд) */}
-        <div className="flex flex-col gap-3">
-          <div role="tablist" className="inline-flex self-start rounded-xl border border-border bg-subtle p-1">
-            {PERIODS.map(({ period: p, labelKey }) => {
-              const active = p === period
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setPeriod(p)}
-                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    active
-                      ? 'bg-flux-primary text-white shadow-[0_2px_8px_rgba(43,97,209,0.4)]'
-                      : 'text-text-dim hover:text-text-secondary'
-                  }`}
-                >
-                  {t(labelKey)}
-                </button>
-              )
-            })}
-          </div>
 
           <div className="flex items-end justify-between gap-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
-                {t('calc.earnings')}
+              <div role="tablist" className="mb-2 inline-flex rounded-xl border border-border bg-[var(--bg-elevated)] p-1">
+                {PERIODS.map(({ period: p, labelKey }) => {
+                  const active = p === period
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setPeriod(p)}
+                      className={`rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                        active
+                          ? 'bg-flux-primary text-white shadow-[0_2px_8px_rgba(43,97,209,0.4)]'
+                          : 'text-text-dim hover:text-text-secondary'
+                      }`}
+                    >
+                      {t(labelKey)}
+                    </button>
+                  )
+                })}
               </div>
-              <div className="mt-1 font-mono text-[28px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[32px]">
+              <div className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[30px]">
                 {formatFlux(periodFlux)}
                 <span className="ml-1.5 text-[14px] font-semibold text-text-dim">FLUX</span>
               </div>
@@ -150,7 +146,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
               </div>
             </div>
             <div className="text-right">
-              <div className="font-mono text-[24px] font-extrabold leading-none tracking-[-0.03em] text-flux-cyan md:text-[26px]">
+              <div className="font-mono text-[22px] font-extrabold leading-none tracking-[-0.03em] text-flux-cyan md:text-[26px]">
                 {formatNum(r.apyPercent, 1)}%
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
