@@ -61,7 +61,7 @@ const ru: Record<Keys, string> = {
   'calc.cumulus': 'Cumulus',
   'calc.nimbus': 'Nimbus',
   'calc.stratus': 'Stratus',
-  'calc.collateral': 'Стоимость флота',
+  'calc.collateral': 'Стоимость нод',
   'calc.earnings': 'Прогноз доходности',
 
   // Parallel Assets

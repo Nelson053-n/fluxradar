@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { ChartIcon } from './icons'
-import { cardBase } from './cardStyles'
 import { formatFlux, formatNum, formatUsd, formatUsdSmart } from '../lib/format'
 import { calcEarnings, type TierCounts, type TierKey } from '../lib/earningsCalc'
 import { useT, type Keys } from '../i18n/store'
@@ -62,7 +61,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
   const periodUsd = { daily: r.dailyUsd, monthly: r.monthlyUsd, yearly: r.yearlyUsd }[period]
 
   return (
-    <div className={cardBase}>
+    <div className="card-toptrim relative overflow-hidden rounded-2xl border border-[rgba(123,91,255,0.25)] bg-gradient-to-br from-[rgba(123,91,255,0.12)] via-[rgba(43,97,209,0.10)] to-[rgba(79,215,232,0.07)] p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-border-strong">
       <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-dim">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(79,215,232,0.2)] bg-gradient-to-br from-[rgba(43,97,209,0.2)] to-[rgba(79,215,232,0.15)] text-flux-cyan">
           <ChartIcon />
@@ -85,7 +84,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
                 max={SLIDER_MAX}
                 value={Math.min(counts[tier], SLIDER_MAX)}
                 onChange={(e) => setTier(tier, e.target.valueAsNumber)}
-                className="min-w-0 flex-1 accent-flux-primary"
+                className="w-28 shrink-0 accent-flux-primary"
               />
               <input
                 type="number"

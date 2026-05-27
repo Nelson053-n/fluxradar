@@ -60,7 +60,7 @@ const en = {
   'calc.cumulus': 'Cumulus',
   'calc.nimbus': 'Nimbus',
   'calc.stratus': 'Stratus',
-  'calc.collateral': 'Fleet collateral',
+  'calc.collateral': 'Nodes value',
   'calc.earnings': 'Projected earnings',
 
   // Parallel Assets
