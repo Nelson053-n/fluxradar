@@ -15,6 +15,14 @@ export interface VisitorStats {
   today: number
 }
 
+/** Число активных нод сети по тирам (для калькулятора). */
+export interface NetworkNodes {
+  total: number
+  cumulus: number
+  nimbus: number
+  stratus: number
+}
+
 /** Одна точка истории цены: unix-секунды + цена в USD. */
 export interface PricePoint {
   t: number
@@ -183,6 +191,11 @@ export function fetchPriceHistory(signal?: AbortSignal): Promise<PriceHistoryRes
 /** Учесть текущего посетителя и получить счётчики (всего / за сутки). */
 export function fetchVisitorStats(signal?: AbortSignal): Promise<VisitorStats> {
   return getJson<VisitorStats>('/api/v1/stats/visitors', signal)
+}
+
+/** Число активных нод сети по тирам — для калькулятора без загруженного кошелька. */
+export function fetchNetworkNodes(signal?: AbortSignal): Promise<NetworkNodes> {
+  return getJson<NetworkNodes>('/api/v1/network/nodes', signal)
 }
 
 export function fetchWalletSummary(

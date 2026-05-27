@@ -5,6 +5,7 @@ const ru: Record<Keys, string> = {
   // Nav
   'nav.dashboard': 'Обзор',
   'nav.allNodes': 'Ноды',
+  'nav.calculator': 'Калькулятор',
   'nav.guide': 'Гайд',
   'nav.bot': 'Бот',
 
@@ -54,6 +55,16 @@ const ru: Record<Keys, string> = {
   'earnings.apy': 'APY от залога',
   'earnings.notAvailable': 'пока недоступно',
   'earnings.estimate': 'оценка',
+
+  // Calculator
+  'calc.title': 'Калькулятор доходности',
+  'calc.subtitle': 'Задайте число нод по тирам — увидите стоимость флота и прогноз доходности.',
+  'calc.cumulus': 'Cumulus',
+  'calc.nimbus': 'Nimbus',
+  'calc.stratus': 'Stratus',
+  'calc.collateralPer': 'залог {flux} FLUX за ноду',
+  'calc.collateral': 'Стоимость флота',
+  'calc.earnings': 'Прогноз доходности',
 
   // Parallel Assets
   'pa.title': 'Parallel Assets',

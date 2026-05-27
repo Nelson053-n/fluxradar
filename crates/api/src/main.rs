@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/ready", get(ready))
         .route("/api/v1/network/price", get(network_price))
         .route("/api/v1/network/price/history", get(price_history))
+        .route("/api/v1/network/nodes", get(network_nodes))
         .route("/api/v1/stats/visitors", get(visitor_stats))
         .route("/api/v1/wallet/{address}/summary", get(wallet_summary))
         .route("/api/v1/wallet/{address}/nodes", get(wallet_nodes))
@@ -92,6 +93,34 @@ async fn network_price(State(state): State<Arc<AppState>>) -> impl IntoResponse 
             Json(json!({"flux_usd": p.usd, "change_24h": p.change_24h})),
         )
             .into_response(),
+        Err(err) => upstream_error(err),
+    }
+}
+
+/// Счётчики активных нод сети по тирам (для калькулятора доходности). Кэш в Redis 60с.
+async fn network_nodes(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    const KEY: &str = "network:nodes";
+    const TTL: u64 = 60;
+    if let Ok(Some(cached)) = cache::get(&state.redis, KEY).await {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&cached) {
+            return (StatusCode::OK, Json(val)).into_response();
+        }
+    }
+    match state.flux.network_count().await {
+        Ok(n) => {
+            let body = json!({
+                "total": n.total,
+                "cumulus": n.cumulus,
+                "nimbus": n.nimbus,
+                "stratus": n.stratus,
+            });
+            if let Ok(s) = serde_json::to_string(&body) {
+                if let Err(e) = cache::set_ex(&state.redis, KEY, &s, TTL).await {
+                    warn!(?e, "не удалось записать кэш network:nodes");
+                }
+            }
+            (StatusCode::OK, Json(body)).into_response()
+        }
         Err(err) => upstream_error(err),
     }
 }

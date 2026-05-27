@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ApiRequestError,
+  fetchNetworkNodes,
   fetchPrice,
   fetchWalletApps,
   fetchWalletNodes,
   fetchWalletSummary,
   type FluxNode,
+  type NetworkNodes,
   type PriceResponse,
   type WalletAppsResponse,
   type WalletSummary,
@@ -23,6 +25,7 @@ import { NodeDetailDrawer } from './components/NodeDetailDrawer'
 import { RadarSpinner } from './components/RadarSpinner'
 import { TelegramCta } from './components/TelegramCta'
 import { Guide } from './components/Guide'
+import { Calculator } from './components/Calculator'
 import { Footer } from './components/Footer'
 import { DashboardSkeleton, EmptyFleet, ErrorState } from './components/Skeleton'
 import {
@@ -42,7 +45,11 @@ import { useT } from './i18n/store'
 const DEFAULT_ADDRESS = 't1MRWH9Q9sWA1XvqmwGoWqynaFFquq8pb7K'
 
 // Секции для якорной навигации и scroll-spy.
-const SECTIONS = ['overview', 'nodes', 'guide']
+const SECTIONS = ['overview', 'nodes', 'calculator', 'guide']
+
+// Стабильная ссылка для дефолта калькулятора без загруженного кошелька (иначе
+// новый объект каждый рендер дёргал бы «adjust state during render» в Calculator).
+const EMPTY_TIERS = { cumulus: 0, nimbus: 0, stratus: 0 }
 
 interface WalletData {
   summary: WalletSummary
@@ -54,6 +61,8 @@ function App() {
   // Lazy init: ?wallet= → localStorage → DEFAULT_ADDRESS (фикс потери адреса на F5).
   const [address, setAddress] = useState(() => readWallet(DEFAULT_ADDRESS))
   const [price, setPrice] = useState<PriceResponse | null>(null)
+  // Счётчики нод сети по тирам — fallback для калькулятора, когда кошелёк не загружен.
+  const [networkFallback, setNetworkFallback] = useState<NetworkNodes | null>(null)
   const [data, setData] = useState<WalletData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -110,13 +119,19 @@ function App() {
     }
   }, [])
 
-  // Цена FLUX (+ изменение за 24ч) — независимо от выбранного кошелька.
+  // Цена FLUX (+ изменение за 24ч) и счётчики нод сети (для калькулятора) —
+  // независимо от выбранного кошелька.
   useEffect(() => {
     const ctrl = new AbortController()
     fetchPrice(ctrl.signal)
       .then((p) => setPrice(p))
       .catch(() => {
         /* цена некритична для дашборда */
+      })
+    fetchNetworkNodes(ctrl.signal)
+      .then((n) => setNetworkFallback(n))
+      .catch(() => {
+        /* счётчики сети некритичны — калькулятор подставит из summary при загрузке */
       })
     return () => ctrl.abort()
   }, [])
@@ -360,6 +375,15 @@ function App() {
           )}
         </>
       )}
+
+      {/* Калькулятор — всегда виден (работает и без загруженного кошелька). */}
+      <div id="calculator" className="mt-8 scroll-mt-24">
+        <Calculator
+          network={data?.summary.network ?? networkFallback}
+          priceUsd={priceUsd}
+          defaultCounts={data?.summary.tiers ?? EMPTY_TIERS}
+        />
+      </div>
 
       <Footer />
 

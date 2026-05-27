@@ -4,6 +4,7 @@ const en = {
   // Nav
   'nav.dashboard': 'Dashboard',
   'nav.allNodes': 'All Nodes',
+  'nav.calculator': 'Calculator',
   'nav.guide': 'Guide',
   'nav.bot': 'Bot',
 
@@ -53,6 +54,16 @@ const en = {
   'earnings.apy': 'APY on collateral',
   'earnings.notAvailable': 'not yet available',
   'earnings.estimate': 'est.',
+
+  // Calculator
+  'calc.title': 'Earnings Calculator',
+  'calc.subtitle': 'Set the node count per tier — see fleet collateral and projected earnings.',
+  'calc.cumulus': 'Cumulus',
+  'calc.nimbus': 'Nimbus',
+  'calc.stratus': 'Stratus',
+  'calc.collateralPer': '{flux} FLUX collateral each',
+  'calc.collateral': 'Fleet collateral',
+  'calc.earnings': 'Projected earnings',
 
   // Parallel Assets
   'pa.title': 'Parallel Assets',

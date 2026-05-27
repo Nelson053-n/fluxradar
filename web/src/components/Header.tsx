@@ -26,6 +26,7 @@ type NavItem =
 const NAV: NavItem[] = [
   { kind: 'scroll', labelKey: 'nav.dashboard', section: 'overview' },
   { kind: 'scroll', labelKey: 'nav.allNodes', section: 'nodes' },
+  { kind: 'scroll', labelKey: 'nav.calculator', section: 'calculator' },
   { kind: 'scroll', labelKey: 'nav.guide', section: 'guide' },
   { kind: 'bot', labelKey: 'nav.bot' },
 ]
