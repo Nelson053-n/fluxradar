@@ -16,6 +16,59 @@
       rel="stylesheet"
     />
     <title>FluxRadar — Node Dashboard</title>
+    <meta
+      name="description"
+      content="FluxRadar — публичный мониторинг Flux-нод: дашборд флота по адресу кошелька, доходность с учётом Parallel Assets, калькулятор и Telegram-алерты. Без регистрации."
+    />
+    <link rel="canonical" href="https://fluxradar.ru/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FluxRadar" />
+    <meta property="og:title" content="FluxRadar — мониторинг Flux-нод" />
+    <meta
+      property="og:description"
+      content="Дашборд флота Flux-нод по адресу кошелька: статус, доходность с Parallel Assets, калькулятор и Telegram-алерты. Без регистрации."
+    />
+    <meta property="og:url" content="https://fluxradar.ru/" />
+    <meta property="og:image" content="https://fluxradar.ru/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FluxRadar — мониторинг Flux-нод" />
+    <meta
+      name="twitter:description"
+      content="Дашборд флота Flux-нод по адресу кошелька: доходность, калькулятор, Telegram-алерты. Без регистрации."
+    />
+    <meta name="twitter:image" content="https://fluxradar.ru/og-image.png" />
+
+    <!-- Structured data: сущность для AI-систем и поисковиков. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "FluxRadar",
+            "url": "https://fluxradar.ru/",
+            "logo": "https://fluxradar.ru/icon-512.png",
+            "sameAs": ["https://github.com/Nelson053-n/fluxradar"]
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "FluxRadar",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "url": "https://fluxradar.ru/",
+            "description": "Публичный self-hosted мониторинг Flux-нод: дашборд флота по адресу кошелька, доходность с учётом Parallel Assets, калькулятор доходности и Telegram-алерты о статусе нод.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+          }
+        ]
+      }
+    </script>
     <script>
       // Анти-FOUC: ставим тему до рендера React, чтобы не было вспышки.
       (function () {
@@ -29,6 +82,27 @@
     </script>
   </head>
   <body>
+    <noscript>
+      <h1>FluxRadar — мониторинг Flux-нод</h1>
+      <p>
+        FluxRadar — публичный сервис мониторинга нод сети
+        <a href="https://runonflux.io">Flux</a>. Введите публичный адрес кошелька
+        (ZelID / t1… / t3…) и получите дашборд всего флота нод: тир (Cumulus / Nimbus /
+        Stratus), статус, ранг в очереди выплат, время до выплаты, окно обслуживания,
+        геолокацию, версию FluxOS и число приложений.
+      </p>
+      <p>
+        Сервис оценивает доходность за день, месяц и год во FLUX и в долларах с учётом
+        Parallel Assets, считает APR на стоимость залога и показывает реальные начисления
+        по PA-чейнам. Встроен калькулятор доходности и привязка Telegram-бота
+        (@FluxRadar_bot) для алертов о падении нод — всё без регистрации.
+      </p>
+      <p>
+        Открытый исходный код:
+        <a href="https://github.com/Nelson053-n/fluxradar">github.com/Nelson053-n/fluxradar</a>.
+        Для работы дашборда включите JavaScript.
+      </p>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
