@@ -36,7 +36,14 @@ import {
   ShieldIcon,
 } from './components/icons'
 import { formatInt, formatNum, formatUsd } from './lib/format'
-import { readWallet, writeWallet, walletFromUrl } from './lib/walletParam'
+import {
+  readWallet,
+  writeWallet,
+  walletFromUrl,
+  getWalletHistory,
+  addWalletHistory,
+  removeWalletHistory,
+} from './lib/walletParam'
 import { useScrollSpy } from './lib/useScrollSpy'
 import { useT } from './i18n/store'
 
@@ -63,6 +70,8 @@ function App() {
   const [price, setPrice] = useState<PriceResponse | null>(null)
   // Счётчики нод сети по тирам — fallback для калькулятора, когда кошелёк не загружен.
   const [networkFallback, setNetworkFallback] = useState<NetworkNodes | null>(null)
+  // История прошлых (успешно загруженных) кошельков — для автодополнения в поиске.
+  const [history, setHistory] = useState<string[]>(() => getWalletHistory())
   const [data, setData] = useState<WalletData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -105,6 +114,9 @@ function App() {
       ])
       if (ctrl.signal.aborted) return
       setData({ summary, nodes: nodesRes.nodes })
+      // Кошелёк успешно загрузился → в историю автодополнения.
+      addWalletHistory(addr)
+      setHistory(getWalletHistory())
     } catch (e) {
       if (ctrl.signal.aborted) return
       const msg =
@@ -150,6 +162,8 @@ function App() {
         ])
         if (ctrl.signal.aborted) return
         setData({ summary, nodes: nodesRes.nodes })
+        addWalletHistory(initial)
+        setHistory(getWalletHistory())
       } catch (e) {
         if (ctrl.signal.aborted) return
         setError(
@@ -214,6 +228,11 @@ function App() {
     void load(address)
   }, [address, load])
 
+  const handleRemoveHistory = useCallback((addr: string) => {
+    removeWalletHistory(addr)
+    setHistory(getWalletHistory())
+  }, [])
+
   const handleRetry = useCallback(() => {
     setLoading(true)
     setError(null)
@@ -267,6 +286,8 @@ function App() {
         onRefresh={handleRefresh}
         refreshing={refreshing}
         hasData={hasContent}
+        history={history}
+        onRemoveHistory={handleRemoveHistory}
       />
 
       {loading && <DashboardSkeleton />}

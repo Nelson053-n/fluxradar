@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CopyIcon, RefreshIcon, SearchIcon, WalletIcon } from './icons'
+import { shortAddress } from '../lib/format'
 import { useT } from '../i18n/store'
 
 interface WalletHeaderProps {
@@ -10,13 +11,27 @@ interface WalletHeaderProps {
   refreshing: boolean
   /** Есть ли загруженные данные кошелька — для disabled-состояния Copy/Refresh/индикатора. */
   hasData: boolean
+  /** История прошлых кошельков (для автодополнения). */
+  history: string[]
+  /** Удалить адрес из истории. */
+  onRemoveHistory: (address: string) => void
 }
 
 /** Wallet header: поиск адреса, пиктограмма кошелька, адрес, действия. Виден всегда. */
-export function WalletHeader({ address, onSubmit, onRefresh, refreshing, hasData }: WalletHeaderProps) {
+export function WalletHeader({
+  address,
+  onSubmit,
+  onRefresh,
+  refreshing,
+  hasData,
+  history,
+  onRemoveHistory,
+}: WalletHeaderProps) {
   const t = useT()
   const [copied, setCopied] = useState(false)
   const [value, setValue] = useState(address)
+  // Открыт ли дропдаун истории (по фокусу поля).
+  const [open, setOpen] = useState(false)
   // Синхронизация поля ввода при внешней смене адреса (демо, ?wallet=, кнопка назад)
   // через паттерн «adjust state during render» вместо эффекта (см. react.dev).
   const [prevAddress, setPrevAddress] = useState(address)
@@ -28,7 +43,22 @@ export function WalletHeader({ address, onSubmit, onRefresh, refreshing, hasData
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = value.trim()
-    if (trimmed) onSubmit(trimmed)
+    if (trimmed) {
+      onSubmit(trimmed)
+      setOpen(false)
+    }
+  }
+
+  // Фильтр истории по текущему вводу; текущий загруженный адрес не показываем.
+  const q = value.trim().toLowerCase()
+  const suggestions = history.filter(
+    (a) => a !== address && (q === '' || a.toLowerCase().includes(q)),
+  )
+
+  function pickSuggestion(addr: string) {
+    setValue(addr)
+    onSubmit(addr)
+    setOpen(false)
   }
 
   async function handleCopy() {
@@ -53,12 +83,21 @@ export function WalletHeader({ address, onSubmit, onRefresh, refreshing, hasData
 
         <form
           onSubmit={handleSubmit}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-subtle py-1.5 pl-3 pr-1.5 focus-within:border-border-strong md:flex-none"
+          onFocus={() => setOpen(true)}
+          // Закрываем, когда фокус ушёл из формы целиком (relatedTarget вне неё),
+          // — клик по пункту/крестику внутри формы не закрывает дропдаун.
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false)
+          }}
+          className="relative flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-subtle py-1.5 pl-3 pr-1.5 focus-within:border-border-strong md:flex-none"
         >
           <SearchIcon className="shrink-0 text-text-dim" />
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setOpen(false)
+            }}
             spellCheck={false}
             autoComplete="off"
             placeholder={t('search.placeholder')}
@@ -71,6 +110,38 @@ export function WalletHeader({ address, onSubmit, onRefresh, refreshing, hasData
           >
             {t('search.track')}
           </button>
+
+          {open && suggestions.length > 0 && (
+            <ul
+              role="listbox"
+              className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-72 overflow-auto rounded-xl border border-border bg-[var(--bg-elevated)] py-1 shadow-glow"
+            >
+              {suggestions.map((addr) => (
+                <li key={addr} role="option" aria-selected={false} className="group flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => pickSuggestion(addr)}
+                    className="min-w-0 flex-1 truncate px-3 py-2 text-left font-mono text-[13px] text-text-secondary transition-colors hover:bg-subtle-hover hover:text-text-primary"
+                    title={addr}
+                  >
+                    {shortAddress(addr)}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t('search.removeHistory')}
+                    title={t('search.removeHistory')}
+                    onClick={() => onRemoveHistory(addr)}
+                    className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-dim opacity-0 transition-opacity hover:bg-subtle-hover hover:text-danger group-hover:opacity-100"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </form>
 
         {hasData && (

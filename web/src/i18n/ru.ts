@@ -13,6 +13,7 @@ const ru: Record<Keys, string> = {
   'search.placeholder': 'Flux-адрес (t1… / t3…)',
   'search.aria': 'Адрес кошелька',
   'search.track': 'Отслеживать',
+  'search.removeHistory': 'Убрать из истории',
   'header.flux': 'FLUX',
 
   // Theme / lang

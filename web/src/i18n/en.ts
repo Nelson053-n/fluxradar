@@ -12,6 +12,7 @@ const en = {
   'search.placeholder': 'Flux address (t1… / t3…)',
   'search.aria': 'Wallet address',
   'search.track': 'Track',
+  'search.removeHistory': 'Remove from history',
   'header.flux': 'FLUX',
 
   // Theme / lang
