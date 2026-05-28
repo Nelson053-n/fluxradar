@@ -9,7 +9,9 @@ set -uo pipefail
 ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 OUT="$ROOT/web/dist/prerender.html"
 TMP="$(mktemp /tmp/flux-prerender.XXXXXX.html)"
-URL="${PRERENDER_URL:-http://localhost:8080/}"
+# Кошелёк для снимка — с разнообразным флотом (все 3 тира), чтобы в HTML для ботов
+# попала богатая таблица нод. Отличается от дефолта приложения (он маленький — для скорости людям).
+URL="${PRERENDER_URL:-http://localhost:8080/?wallet=t1Mbb821cmQcT4bWovFWViA6MhPNFRVBajj}"
 
 export PATH="$HOME/.nvm/versions/node/v20.20.1/bin:$PATH"
 # Запускаем node из web/ — там playwright в node_modules (ESM bare-import резолвится по CWD).
