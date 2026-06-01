@@ -31,6 +31,7 @@ const ru: Record<Keys, string> = {
   // Stat cards
   'stat.totalNodes': 'Всего нод',
   'stat.totalNodes.sub': 'активны в сети',
+  'stat.totalNodes.network': 'всего в сети: {total}',
   'stat.walletBalance': 'Баланс кошелька',
   'stat.walletBalance.sub': 'FLUX · ≈ {usd} USD',
   'stat.walletBalance.pa': '+ {flux} FLUX к получению с парал. чейнов',

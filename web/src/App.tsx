@@ -309,7 +309,33 @@ function App() {
                   label={t('stat.totalNodes')}
                   icon={<MonitorIcon />}
                   value={formatInt(data.summary.total_nodes)}
-                  sub={<span className="text-text-dim">{t('stat.totalNodes.sub')}</span>}
+                  sub={
+                    networkFallback ? (
+                      <span className="flex flex-col gap-0.5">
+                        <span className="text-text-dim">
+                          {t('stat.totalNodes.network', {
+                            total: formatInt(networkFallback.total),
+                          })}
+                        </span>
+                        <span className="text-[11px] text-text-dim">
+                          {t('tierName.cumulus')}{' '}
+                          <span className="font-mono text-text-secondary">
+                            {formatInt(networkFallback.cumulus)}
+                          </span>{' '}
+                          · {t('tierName.nimbus')}{' '}
+                          <span className="font-mono text-text-secondary">
+                            {formatInt(networkFallback.nimbus)}
+                          </span>{' '}
+                          · {t('tierName.stratus')}{' '}
+                          <span className="font-mono text-text-secondary">
+                            {formatInt(networkFallback.stratus)}
+                          </span>
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-text-dim">{t('stat.totalNodes.sub')}</span>
+                    )
+                  }
                 />
                 <TierCard
                   cumulus={data.summary.tiers.cumulus}

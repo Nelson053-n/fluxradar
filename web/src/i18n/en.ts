@@ -30,6 +30,7 @@ const en = {
   // Stat cards
   'stat.totalNodes': 'Total Nodes',
   'stat.totalNodes.sub': 'active in the network',
+  'stat.totalNodes.network': 'network total: {total}',
   'stat.walletBalance': 'Wallet Balance',
   'stat.walletBalance.sub': 'FLUX · ≈ {usd} USD',
   'stat.walletBalance.pa': '+ {flux} FLUX claimable across parallel chains',
