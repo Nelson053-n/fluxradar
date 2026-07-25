@@ -155,7 +155,7 @@ async fn price_history(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 /// Счётчик уникальных посетителей сайта: `{total, today}`.
 ///
 /// Фронт дёргает при загрузке — IP учитывается в HLL (Redis). За nginx-прокси
-/// реальный адрес берём из `X-Forwarded-For` (первый) / `X-Real-IP`.
+/// реальный адрес берём из `X-Real-IP` / хвоста `X-Forwarded-For` (см. `client_ip`).
 async fn visitor_stats(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -163,7 +163,10 @@ async fn visitor_stats(
     let ip = client_ip(&headers);
     let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
     match cache::track_visitor(&state.redis, &ip, &date).await {
-        Ok((total, today)) => (StatusCode::OK, Json(json!({"total": total, "today": today}))),
+        Ok((total, today)) => (
+            StatusCode::OK,
+            Json(json!({"total": total, "today": today})),
+        ),
         Err(e) => {
             warn!(?e, "не удалось учесть посетителя");
             (StatusCode::OK, Json(json!({"total": 0, "today": 0})))
@@ -171,20 +174,27 @@ async fn visitor_stats(
     }
 }
 
-/// Реальный IP клиента за прокси: первый в `X-Forwarded-For`, иначе `X-Real-IP`,
+/// Реальный IP клиента за прокси: `X-Real-IP`, иначе ПОСЛЕДНИЙ в `X-Forwarded-For`,
 /// иначе "unknown" (все unknown схлопнутся в одного — приемлемо для счётчика).
+///
+/// Оба заголовка клиент может прислать сам, поэтому доверяем только тому, что
+/// дописал наш nginx: `X-Real-IP` он ставит из `$remote_addr`, а в `X-Forwarded-For`
+/// (`proxy_add_x_forwarded_for`) дописывает реальный адрес в КОНЕЦ цепочки.
+/// Брать первый элемент нельзя — его полностью контролирует клиент и счётчик
+/// уникальных посетителей накручивался бы заголовком.
 fn client_ip(headers: &HeaderMap) -> String {
     headers
-        .get("x-forwarded-for")
+        .get("x-real-ip")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())
         .or_else(|| {
             headers
-                .get("x-real-ip")
+                .get("x-forwarded-for")
                 .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.rsplit(',').next())
                 .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty())
         })
         .unwrap_or_else(|| "unknown".to_owned())
 }
@@ -479,17 +489,20 @@ fn geo_json(stats: Option<&flux_client::NodeStats>) -> serde_json::Value {
 /// Кэшируется в Redis (DETAIL_TTL для статуса/apps, GEO_TTL для гео).
 async fn node_detail(
     State(state): State<Arc<AppState>>,
-    Path(ip): Path<String>,
+    Path(raw_ip): Path<String>,
 ) -> impl IntoResponse {
-    // Грубая валидация IP (host[:port]) — отсечь мусор до запроса наружу.
-    let host = ip.split(':').next().unwrap_or("");
-    if host.is_empty() || !host.chars().all(|c| c.is_ascii_digit() || c == '.') {
+    // Валидация host И port целиком: всё, что после первого ':', раньше уходило
+    // в запрос к Flux API и в ключ Redis без проверки (инъекция query-параметров
+    // и неограниченный рост ключей кэша). Ниже используется ТОЛЬКО нормализованное
+    // значение `ip`, а не исходная строка из пути.
+    let Some((ip, host)) = normalize_node_ip(&raw_ip) else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({"error": "невалидный IP"})),
         )
             .into_response();
-    }
+    };
+    let host = host.as_str();
 
     let cache_key = format!("detail:{ip}");
     if let Ok(Some(cached)) = cache::get(&state.redis, &cache_key).await {
@@ -534,6 +547,34 @@ async fn node_detail(
     (StatusCode::OK, Json(body)).into_response()
 }
 
+/// Разобрать и нормализовать IP ноды из пути: строго `host` или `host:port`.
+///
+/// Возвращает `(нормализованный ip, host)` — обе части уже проверены, так что их
+/// безопасно подставлять в запрос к Flux API и в ключ Redis. `None` — мусор (400).
+///
+/// Проверяется ВСЯ строка: host как Ipv4Addr, порт как u16 > 0. Иначе всё после
+/// первого ':' утекало бы в апстрим-запрос (`?ip=1.1.1.1:16137&foo=bar`) и плодило
+/// бы отдельный ключ кэша на каждый вариант.
+fn normalize_node_ip(raw: &str) -> Option<(String, String)> {
+    let (host, port) = match raw.split_once(':') {
+        Some((h, p)) => (h, Some(p)),
+        None => (raw, None),
+    };
+    // Строгий разбор: отсекает и лишние октеты, и пустые, и любые не-цифры.
+    let addr: std::net::Ipv4Addr = host.parse().ok()?;
+    let host = addr.to_string();
+    match port {
+        Some(p) => {
+            let port: u16 = p.parse().ok()?;
+            if port == 0 {
+                return None;
+            }
+            Some((format!("{host}:{port}"), host))
+        }
+        None => Some((host.clone(), host)),
+    }
+}
+
 /// Бенчмарк/apps по всем нодам сети с кэшем в Redis. None при ошибке.
 /// Кэш прогревается воркером каждые 60с — обычно читается из тёплого кэша;
 /// fallback тянет fluxinfo сам, если кэш пуст (ключ/TTL общие со storage).
@@ -570,4 +611,84 @@ fn upstream_error(err: flux_client::FluxError) -> axum::response::Response {
         Json(json!({"error": "Flux API недоступен"})),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{client_ip, normalize_node_ip};
+    use axum::http::HeaderMap;
+
+    fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
+        let mut h = HeaderMap::new();
+        for (k, v) in pairs {
+            let name: axum::http::HeaderName = k.parse().unwrap();
+            h.insert(name, v.parse().unwrap());
+        }
+        h
+    }
+
+    #[test]
+    fn client_ip_prefers_x_real_ip() {
+        // X-Real-IP ставит наш nginx из $remote_addr — ему доверяем в первую очередь.
+        let h = headers(&[("x-real-ip", "9.9.9.9"), ("x-forwarded-for", "1.2.3.4")]);
+        assert_eq!(client_ip(&h), "9.9.9.9");
+    }
+
+    #[test]
+    fn client_ip_ignores_spoofed_prefix_of_forwarded_for() {
+        // Клиент прислал свой XFF, nginx дописал реальный адрес в конец —
+        // берём последний, иначе счётчик посетителей накручивается заголовком.
+        let h = headers(&[("x-forwarded-for", "1.2.3.4, 5.6.7.8, 203.0.113.9")]);
+        assert_eq!(client_ip(&h), "203.0.113.9");
+    }
+
+    #[test]
+    fn client_ip_falls_back_to_unknown() {
+        assert_eq!(client_ip(&HeaderMap::new()), "unknown");
+        assert_eq!(client_ip(&headers(&[("x-real-ip", "  ")])), "unknown");
+    }
+
+    #[test]
+    fn accepts_plain_ip_and_ip_with_port() {
+        assert_eq!(
+            normalize_node_ip("1.2.3.4:16137"),
+            Some(("1.2.3.4:16137".to_owned(), "1.2.3.4".to_owned()))
+        );
+        assert_eq!(
+            normalize_node_ip("1.2.3.4"),
+            Some(("1.2.3.4".to_owned(), "1.2.3.4".to_owned()))
+        );
+    }
+
+    #[test]
+    fn rejects_query_param_injection() {
+        // Раньше эти payload'ы проходили: валидировался только host до ':',
+        // а хвост уходил в `?ip=` запроса к Flux API и в ключ Redis.
+        assert!(normalize_node_ip("1.1.1.1:16137&foo=bar").is_none());
+        assert!(normalize_node_ip("1.1.1.1:16137/../../../etc").is_none());
+        assert!(normalize_node_ip("1.1.1.1:@evil.com/").is_none());
+        assert!(normalize_node_ip("1.1.1.1:16137#frag").is_none());
+        assert!(normalize_node_ip("1.1.1.1:1 HTTP/1.1\r\nX: y").is_none());
+    }
+
+    #[test]
+    fn rejects_malformed_host_and_port() {
+        assert!(normalize_node_ip("").is_none());
+        assert!(normalize_node_ip("evil.com").is_none());
+        assert!(normalize_node_ip("1.1.1.1.1").is_none()); // лишний октет
+        assert!(normalize_node_ip("1.1.1").is_none()); // неполный
+        assert!(normalize_node_ip("999.1.1.1").is_none()); // октет > 255
+        assert!(normalize_node_ip("1.1.1.1:0").is_none()); // порт 0
+        assert!(normalize_node_ip("1.1.1.1:99999").is_none()); // порт > u16
+        assert!(normalize_node_ip("1.1.1.1:").is_none()); // пустой порт
+    }
+
+    #[test]
+    fn normalizes_cache_key_variants_to_same_value() {
+        // Ключ кэша строится из нормализованного значения — «01.1.1.1» и «1.1.1.1»
+        // не должны плодить два разных ключа для одной ноды.
+        let a = normalize_node_ip("1.1.1.1:16137").unwrap().0;
+        let b = normalize_node_ip("1.1.1.1:016137").unwrap().0;
+        assert_eq!(a, b);
+    }
 }
