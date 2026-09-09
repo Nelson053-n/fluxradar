@@ -242,6 +242,16 @@ impl FluxClient {
         })
     }
 
+    /// Клиент с другим базовым URL. Нужен тестам, чтобы направить запросы на
+    /// заведомо закрытый адрес: тогда проверка «мусор отсекается до похода
+    /// наружу» падает, если валидация сломается, вместо тихого запроса в сеть.
+    pub fn with_base_url(base_url: impl Into<String>) -> Result<Self, FluxError> {
+        Ok(Self {
+            base_url: base_url.into(),
+            ..Self::new()?
+        })
+    }
+
     /// Полный детерминированный список нод сети — один запрос вместо N (§5.4 ТЗ).
     pub async fn deterministic_node_list(&self) -> Result<Vec<DeterministicNode>, FluxError> {
         let url = format!("{}/daemon/viewdeterministicfluxnodelist", self.base_url);

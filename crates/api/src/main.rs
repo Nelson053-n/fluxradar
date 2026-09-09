@@ -42,7 +42,20 @@ async fn main() -> anyhow::Result<()> {
         redis: cache::connect(&redis_url).await?,
     });
 
-    let app = Router::new()
+    let app = router(state);
+
+    let addr = std::env::var("API_BIND").unwrap_or_else(|_| "0.0.0.0:5049".to_owned());
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    info!(%addr, "FluxScope API слушает");
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+/// Сборка роутера. Вынесена из `main`, чтобы тесты могли проверить контракт
+/// путей (`/api/v1/...`) без Redis и сети: nginx проксирует на бэкенд полный
+/// путь, поэтому потеря префикса `/api/v1` ломает прод целиком.
+fn router(state: Arc<AppState>) -> Router {
+    Router::new()
         .route("/api/v1/health", get(health))
         .route("/api/v1/ready", get(ready))
         .route("/api/v1/network/price", get(network_price))
@@ -54,13 +67,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/wallet/{address}/apps", get(wallet_apps))
         .route("/api/v1/node/{ip}/detail", get(node_detail))
         .layer(CorsLayer::permissive())
-        .with_state(state);
-
-    let addr = std::env::var("API_BIND").unwrap_or_else(|_| "0.0.0.0:5049".to_owned());
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    info!(%addr, "FluxScope API слушает");
-    axum::serve(listener, app).await?;
-    Ok(())
+        .with_state(state)
 }
 
 /// Liveness probe — процесс жив (§6).
@@ -615,8 +622,136 @@ fn upstream_error(err: flux_client::FluxError) -> axum::response::Response {
 
 #[cfg(test)]
 mod tests {
-    use super::{client_ip, normalize_node_ip};
-    use axum::http::HeaderMap;
+    use super::{client_ip, normalize_node_ip, router, AppState};
+    use axum::body::Body;
+    use axum::http::{HeaderMap, Request, StatusCode};
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    /// Роутер поверх состояния, не требующего живых бэкендов: `cache::connect`
+    /// только валидирует URL, соединение открывается при первом обращении.
+    /// Поэтому маршрутизацию и валидацию адреса можно проверить без Redis и сети.
+    async fn test_router() -> axum::Router {
+        let state = Arc::new(AppState {
+            // Оба бэкенда намеренно указывают в никуда: тесты проверяют
+            // маршрутизацию и раннюю валидацию, поэтому любой реальный поход
+            // наружу — это дефект, который должен уронить тест, а не тихо
+            // сходить в сеть и записать мусор в живой кэш.
+            flux: flux_client::FluxClient::with_base_url("http://127.0.0.1:1")
+                .expect("клиент собирается без сети"),
+            redis: storage::cache::connect("redis://127.0.0.1:1")
+                .await
+                .expect("пул строится без соединения"),
+        });
+        router(state)
+    }
+
+    async fn status_of(uri: &str) -> StatusCode {
+        let resp = test_router()
+            .await
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        resp.status()
+    }
+
+    /// Проверка, что путь зарегистрирован, без выполнения хендлера: на известный
+    /// маршрут Axum отвечает 405 (метод не разрешён), на неизвестный — 404.
+    ///
+    /// GET здесь применять нельзя: хендлеры ходят в Flux API и Redis, поэтому на
+    /// холодном кэше такой тест висит минутами и зависит от внешней сети.
+    async fn route_probe(uri: &str) -> StatusCode {
+        method_probe("PROPFIND", uri).await
+    }
+
+    /// Тот же зонд конкретным методом. Применять его к остальным маршрутам
+    /// нельзя: GET выполняет хендлер, а тот ходит в Flux API и Redis.
+    async fn method_probe(method: &str, uri: &str) -> StatusCode {
+        let resp = test_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        resp.status()
+    }
+
+    /// Прод-инцидент 2026-09-09: диагностика шла по путям без `v1` и получала
+    /// 404, из-за чего рабочий сервис выглядел упавшим. Пути — публичный
+    /// контракт с nginx (`proxy_pass` без слэша передаёт путь целиком),
+    /// поэтому фиксируем их тестом.
+    #[tokio::test]
+    async fn all_v1_routes_are_registered() {
+        for uri in [
+            "/api/v1/health",
+            "/api/v1/ready",
+            "/api/v1/network/price",
+            "/api/v1/network/price/history",
+            "/api/v1/network/nodes",
+            "/api/v1/stats/visitors",
+            "/api/v1/wallet/t1cuMLs3MUkMUH8tnzrkGHQJvxvQqrfuQAf/summary",
+            "/api/v1/wallet/t1cuMLs3MUkMUH8tnzrkGHQJvxvQqrfuQAf/nodes",
+            "/api/v1/wallet/t1cuMLs3MUkMUH8tnzrkGHQJvxvQqrfuQAf/apps",
+            "/api/v1/node/1.2.3.4:16137/detail",
+        ] {
+            assert_eq!(
+                route_probe(uri).await,
+                StatusCode::METHOD_NOT_ALLOWED,
+                "маршрут {uri} не зарегистрирован"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn health_is_ok_without_backends() {
+        // Liveness не должен зависеть от Redis/Flux API, иначе внешний
+        // мониторинг покажет падение при живом процессе.
+        assert_eq!(status_of("/api/v1/health").await, StatusCode::OK);
+        // Маршрут должен отвечать именно на GET: 405 в предыдущем тесте
+        // подтверждает лишь существование пути, но не метод, а фронт и внешний
+        // мониторинг ходят сюда GET'ом. Проверяем на health — единственном
+        // хендлере, который не обращается ни к Flux API, ни к Redis.
+        assert_eq!(
+            method_probe("POST", "/api/v1/health").await,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+
+    #[tokio::test]
+    async fn routes_without_v1_prefix_are_not_served() {
+        // Обратная сторона контракта: старые пути без версии отвечать не должны.
+        for uri in ["/api/health", "/health", "/api/network/price"] {
+            assert_eq!(route_probe(uri).await, StatusCode::NOT_FOUND, "путь {uri}");
+        }
+    }
+
+    /// Невалидный адрес отсекается до похода в сеть (§9.4): ответ 400, а не 502.
+    #[tokio::test]
+    async fn invalid_wallet_address_is_rejected_before_upstream() {
+        for bad in [
+            "not-an-address",
+            "0x52908400098527886E0F7030069857D2E4169EE7",
+        ] {
+            let uri = format!("/api/v1/wallet/{bad}/summary");
+            assert_eq!(
+                status_of(&uri).await,
+                StatusCode::BAD_REQUEST,
+                "адрес {bad}"
+            );
+        }
+    }
+
+    /// IP с инъекцией параметров тоже отсекается до обращения к Flux API.
+    #[tokio::test]
+    async fn malformed_node_ip_is_rejected_before_upstream() {
+        let uri = "/api/v1/node/1.1.1.1:16137&foo=bar/detail";
+        assert_eq!(status_of(uri).await, StatusCode::BAD_REQUEST);
+    }
 
     fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
         let mut h = HeaderMap::new();
