@@ -58,6 +58,10 @@ const SECTIONS = ['overview', 'nodes', 'calculator', 'guide']
 // новый объект каждый рендер дёргал бы «adjust state during render» в Calculator).
 const EMPTY_TIERS = { cumulus: 0, nimbus: 0, stratus: 0 }
 
+// Период автообновления дашборда. Совпадает с подписью индикатора
+// (`wallet.autoRefresh`) и с TTL кэша сводки на бэкенде — чаще смысла нет.
+const AUTO_REFRESH_MS = 60_000
+
 interface WalletData {
   summary: WalletSummary
   nodes: FluxNode[]
@@ -98,6 +102,14 @@ function App() {
 
   // Отменяем устаревшие запросы при быстрой смене адреса.
   const abortRef = useRef<AbortController | null>(null)
+  // Когда данные обновлялись в последний раз — чтобы после возврата на вкладку
+  // не дёргать API, если с прошлого обновления прошло меньше интервала.
+  // Инициализируется нулём: Date.now() в теле рендера — нечистый вызов,
+  // фактическое время проставляется при первом запуске таймера.
+  const lastRefreshRef = useRef(0)
+  // Идёт ли сейчас загрузка. В ref, а не в зависимостях эффекта автообновления —
+  // см. комментарий в tick().
+  const busyRef = useRef(false)
 
   // load() только грузит данные и пишет результат — спиннер выставляют
   // вызывающие (обработчики событий). На mount начальный стейт уже loading:true,
@@ -223,6 +235,7 @@ function App() {
   )
 
   const handleRefresh = useCallback(() => {
+    lastRefreshRef.current = Date.now()
     setRefreshing(true)
     setError(null)
     void load(address)
@@ -252,6 +265,59 @@ function App() {
   // Scroll-spy активен только когда секции реально в DOM (данные загружены).
   const hasContent = !loading && !error && data != null
   const activeSection = useScrollSpy(SECTIONS, hasContent)
+
+  // Автообновление включено, как только кошелёк успешно загрузился. Берём `data`,
+  // а не hasContent: тот гаснет на время самого обновления, из-за чего эффект
+  // перезапускался бы и сбрасывал интервал.
+  const autoRefreshOn = data != null
+
+  useEffect(() => {
+    busyRef.current = loading || refreshing
+  }, [loading, refreshing])
+
+  // Автообновление раз в AUTO_REFRESH_MS — то, что обещает индикатор в шапке.
+  // Тикаем только при видимой вкладке: фоновые вкладки иначе молотили бы по API
+  // круглые сутки. При возврате на вкладку обновляем сразу, если интервал уже
+  // прошёл, — иначе данные висели бы устаревшими до конца следующего тика.
+  useEffect(() => {
+    if (!autoRefreshOn) return
+
+    let timer: number | undefined
+    const tick = () => {
+      // Пропускаем тик, пока идёт любая другая загрузка: load() прерывает
+      // предыдущий запрос, и фоновое обновление отменило бы то, что запросил
+      // пользователь. Состояние читаем через ref: держать loading/refreshing в
+      // зависимостях эффекта нельзя — тик сам их меняет, эффект перезапускался
+      // бы и сбрасывал интервал, не досчитав до конца.
+      if (document.hidden || busyRef.current) return
+      lastRefreshRef.current = Date.now()
+      setRefreshing(true)
+      void load(address)
+    }
+
+    const start = () => {
+      window.clearInterval(timer)
+      timer = window.setInterval(tick, AUTO_REFRESH_MS)
+    }
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        window.clearInterval(timer)
+        return
+      }
+      if (Date.now() - lastRefreshRef.current >= AUTO_REFRESH_MS) tick()
+      start()
+    }
+
+    // Первый монтаж: данные только что загружены — отсчёт ведём от этого момента.
+    if (lastRefreshRef.current === 0) lastRefreshRef.current = Date.now()
+    if (!document.hidden) start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [address, autoRefreshOn, load])
 
   // Денежные значения с учётом текущей цены, если бэкенд не прислал usd.
   const usdValue = (flux: number, fallbackUsd: number) =>
