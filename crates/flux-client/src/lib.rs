@@ -484,4 +484,367 @@ mod tests {
         assert_eq!(node.tier, "CUMULUS");
         assert_eq!(node.payment_address, "t1Whn4HFFRYPoQqUVYNK2fLoHadBkFzM1Sh");
     }
+
+    #[test]
+    fn deterministic_node_defaults_missing_optional_fields() {
+        // API иногда отдаёт минимальный набор полей (например, для только что
+        // добавленной ноды без lastpaid/last_paid_height). Без #[serde(default)]
+        // на этих полях парсинг всего списка нод падал бы на одной кривой записи
+        // и ронял бы весь дашборд владельца.
+        let json = r#"{
+            "ip": "1.2.3.4:16137",
+            "tier": "STRATUS",
+            "payment_address": "t1Abc",
+            "rank": 5
+        }"#;
+        let node: DeterministicNode = serde_json::from_str(json).unwrap();
+        assert_eq!(node.activesince, "");
+        assert_eq!(node.lastpaid, "");
+        assert_eq!(node.last_paid_height, 0);
+        assert_eq!(node.last_confirmed_height, 0);
+        assert_eq!(node.added_height, 0);
+        assert_eq!(node.amount, "");
+    }
+
+    #[test]
+    fn deterministic_node_list_skips_no_field_but_fails_without_required() {
+        // rank/tier/ip/payment_address не помечены #[serde(default)] — это
+        // осознанное требование: без них запись бессмысленна. Тест фиксирует,
+        // что отсутствие обязательного поля — это ошибка парсинга, а не тихий 0/"".
+        let json = r#"{
+            "tier": "CUMULUS",
+            "payment_address": "t1Abc",
+            "rank": 0
+        }"#;
+        let result: Result<DeterministicNode, _> = serde_json::from_str(json);
+        assert!(
+            result.is_err(),
+            "отсутствие обязательного поля ip должно падать"
+        );
+    }
+
+    #[test]
+    fn network_count_maps_hyphenated_tier_keys() {
+        // Flux API отдаёт ключи через дефис (cumulus-enabled), а не snake_case —
+        // без #[serde(rename)] на каждом поле serde тихо возьмёт default (0),
+        // и дашборд покажет нулевые счётчики по тирам при валидном ответе API.
+        let json = r#"{
+            "total": 12345,
+            "cumulus-enabled": 8000,
+            "nimbus-enabled": 3000,
+            "stratus-enabled": 1345
+        }"#;
+        let count: NetworkCount = serde_json::from_str(json).unwrap();
+        assert_eq!(count.total, 12345);
+        assert_eq!(count.cumulus, 8000);
+        assert_eq!(count.nimbus, 3000);
+        assert_eq!(count.stratus, 1345);
+    }
+
+    #[test]
+    fn get_info_defaults_blocks_when_absent() {
+        // blocks помечен #[serde(default)] — если daemon/getinfo когда-нибудь
+        // не отдаст это поле, парсинг не должен падать (высота блока не критична
+        // для остального ответа), а должен тихо дать 0.
+        let info: GetInfo = serde_json::from_str("{}").unwrap();
+        assert_eq!(info.blocks, 0);
+    }
+
+    #[test]
+    fn get_info_parses_blocks() {
+        let info: GetInfo = serde_json::from_str(r#"{"blocks": 1734567}"#).unwrap();
+        assert_eq!(info.blocks, 1734567);
+    }
+
+    #[test]
+    fn node_status_info_defaults_all_fields_when_node_offline() {
+        // Для офлайн-ноды getfluxnodestatus может вернуть пустой/частичный
+        // объект. Все поля должны безопасно дефолтиться в "", а не падать —
+        // иначе один офлайн-узел в списке ронял бы весь запрос деталей.
+        let status: NodeStatusInfo = serde_json::from_str("{}").unwrap();
+        assert_eq!(status.status, "");
+        assert_eq!(status.tier, "");
+        assert_eq!(status.activesince, "");
+        assert_eq!(status.lastpaid, "");
+    }
+
+    #[test]
+    fn pa_chain_stat_maps_camelcase_fields() {
+        // fusion.runonflux.io отдаёт camelCase (possibleToClaim, claimedAmount,
+        // receivedAmount, feesPaid) — без rename эти суммы тихо станут 0.0,
+        // а именно они формируют цифры на дашборде claimable/claimed.
+        let json = r#"{
+            "chain": "ETH",
+            "possibleToClaim": 12.5,
+            "claimedAmount": 8.25,
+            "receivedAmount": 8.0,
+            "feesPaid": 0.25
+        }"#;
+        let stat: PaChainStat = serde_json::from_str(json).unwrap();
+        assert_eq!(stat.chain, "ETH");
+        assert_eq!(stat.possible_to_claim, 12.5);
+        assert_eq!(stat.claimed_amount, 8.25);
+        assert_eq!(stat.received_amount, 8.0);
+        assert_eq!(stat.fees_paid, 0.25);
+    }
+
+    #[test]
+    fn pa_chain_stat_defaults_when_chain_stat_partial() {
+        // Некоторые чейны могут не иметь feesPaid в ответе (например, нет вывода
+        // ещё не было) — обязателен только chain, остальное дефолтится в 0.0.
+        let stat: PaChainStat = serde_json::from_str(r#"{"chain": "BTC"}"#).unwrap();
+        assert_eq!(stat.chain, "BTC");
+        assert_eq!(stat.possible_to_claim, 0.0);
+        assert_eq!(stat.claimed_amount, 0.0);
+        assert_eq!(stat.received_amount, 0.0);
+        assert_eq!(stat.fees_paid, 0.0);
+    }
+
+    #[test]
+    fn pa_summary_parses_nested_chain_statistics() {
+        // Проверяем вложенную структуру целиком: maxClaimableTotal/claimedTotal
+        // (rename) + вложенный массив chainStatistics с camelCase-полями внутри.
+        let json = r#"{
+            "maxClaimableTotal": 100.0,
+            "claimedTotal": 40.0,
+            "chainStatistics": [
+                {"chain": "ETH", "possibleToClaim": 60.0, "claimedAmount": 40.0, "receivedAmount": 39.5, "feesPaid": 0.5}
+            ]
+        }"#;
+        let summary: PaSummary = serde_json::from_str(json).unwrap();
+        assert_eq!(summary.max_claimable_total, 100.0);
+        assert_eq!(summary.claimed_total, 40.0);
+        assert_eq!(summary.chain_statistics.len(), 1);
+        assert_eq!(summary.chain_statistics[0].chain, "ETH");
+    }
+
+    #[test]
+    fn pa_summary_claimable_is_difference_of_mined_and_claimed() {
+        // claimable() — единственная содержательная логика в файле: то самое
+        // число «доступно к получению», которое видит пользователь на дашборде.
+        let summary = PaSummary {
+            max_claimable_total: 100.0,
+            claimed_total: 35.0,
+            chain_statistics: vec![],
+        };
+        assert_eq!(summary.claimable(), 65.0);
+    }
+
+    #[test]
+    fn pa_summary_claimable_never_goes_negative() {
+        // Если claimed почему-то превысил max (рассинхрон данных источника),
+        // claimable() обязан отдать 0.0, а не отрицательное число — иначе на
+        // дашборде показалась бы абсурдная отрицательная сумма к получению.
+        let summary = PaSummary {
+            max_claimable_total: 10.0,
+            claimed_total: 15.0,
+            chain_statistics: vec![],
+        };
+        assert_eq!(summary.claimable(), 0.0);
+    }
+
+    #[test]
+    fn ip_host_strips_port() {
+        assert_eq!(ip_host("82.64.11.18:16137"), "82.64.11.18");
+    }
+
+    #[test]
+    fn ip_host_returns_input_when_no_port() {
+        // fluxinfo иногда отдаёт IP без порта — сопоставление по ключу карты
+        // node_stats не должно ломаться на отсутствии ':'.
+        assert_eq!(ip_host("82.64.11.18"), "82.64.11.18");
+    }
+
+    #[test]
+    fn coingecko_price_defaults_change_when_absent() {
+        // usd_24h_change — Option с #[serde(default)]: CoinGecko иногда не
+        // отдаёт change при include_24hr_change, если данных за 24ч ещё нет
+        // (свежий листинг). flux_price() должен получить None, а не упасть.
+        let body: CoinGeckoPrice = serde_json::from_str(r#"{"zelcash": {"usd": 0.35}}"#).unwrap();
+        assert_eq!(body.zelcash.usd, 0.35);
+        assert_eq!(body.zelcash.usd_24h_change, None);
+    }
+
+    #[test]
+    fn coingecko_price_parses_change_when_present() {
+        let body: CoinGeckoPrice =
+            serde_json::from_str(r#"{"zelcash": {"usd": 0.42, "usd_24h_change": -3.15}}"#).unwrap();
+        assert_eq!(body.zelcash.usd, 0.42);
+        assert_eq!(body.zelcash.usd_24h_change, Some(-3.15));
+    }
+
+    #[test]
+    fn coingecko_chart_parses_price_points_as_pairs() {
+        // market_chart отдаёт prices как массив пар [ts_ms, usd] — ровно то,
+        // что flux_price_history() потом мапит через `match p.as_slice()`.
+        let json = r#"{"prices": [[1700000000000.0, 0.5], [1700086400000.0, 0.52]]}"#;
+        let chart: CoinGeckoChart = serde_json::from_str(json).unwrap();
+        assert_eq!(chart.prices.len(), 2);
+        assert_eq!(chart.prices[0], vec![1700000000000.0, 0.5]);
+    }
+
+    #[test]
+    fn flux_price_history_mapping_converts_ms_to_secs_and_filters_malformed_points() {
+        // Воспроизводим ту же логику filter_map, что в flux_price_history(),
+        // чтобы поймать регрессию в переводе мс→сек или в отбрасывании
+        // повреждённых точек (не пары), не делая сетевой запрос.
+        let prices: Vec<Vec<f64>> = vec![
+            vec![1700000000000.0, 0.5],
+            vec![123.0], // повреждённая точка — не пара, должна быть отброшена
+        ];
+        let points: Vec<(i64, f64)> = prices
+            .into_iter()
+            .filter_map(|p| match p.as_slice() {
+                [ts_ms, usd] => Some(((*ts_ms / 1000.0) as i64, *usd)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(points, vec![(1700000000, 0.5)]);
+    }
+
+    #[test]
+    fn fusion_envelope_unwraps_data_without_status_field() {
+        // В отличие от FluxEnvelope, у fusion нет поля status — обёртка
+        // должна парситься по одному только data, без ожидания status.
+        let json =
+            r#"{"data": {"maxClaimableTotal": 5.0, "claimedTotal": 2.0, "chainStatistics": []}}"#;
+        let env: FluxFusionEnvelope = serde_json::from_str(json).unwrap();
+        assert_eq!(env.data.max_claimable_total, 5.0);
+        assert_eq!(env.data.claimed_total, 2.0);
+    }
+
+    #[test]
+    fn flux_info_rec_parses_full_record_with_bench_apps_geo() {
+        // Полная форма одной записи stats.runonflux.io/fluxinfo — проверяем,
+        // что все три вложенные секции (benchmark/apps/geolocation) читаются
+        // корректно, включая rename countryCode/regionName.
+        let json = r#"{
+            "ip": "5.6.7.8:16137",
+            "benchmark": {
+                "info": {"version": "v5.6.0"},
+                "bench": {"status": "ok", "error": "", "cores": 8.0, "ram": 32.0, "ssd": 500.0, "eps": 120.5, "ping": 15.2}
+            },
+            "apps": {"runningapps": [{"name": "app1"}, {"name": "app2"}]},
+            "geolocation": {"country": "Germany", "countryCode": "DE", "regionName": "Hesse"}
+        }"#;
+        let rec: FluxInfoRec = serde_json::from_str(json).unwrap();
+        assert_eq!(rec.ip, "5.6.7.8:16137");
+        let bench = rec.benchmark.unwrap();
+        assert_eq!(bench.info.unwrap().version, "v5.6.0");
+        let bench_data = bench.bench.unwrap();
+        assert_eq!(bench_data.status, "ok");
+        assert_eq!(bench_data.cores, 8.0);
+        assert_eq!(rec.apps.unwrap().runningapps.len(), 2);
+        let geo = rec.geolocation.unwrap();
+        assert_eq!(geo.country_code, "DE");
+        assert_eq!(geo.region_name, "Hesse");
+    }
+
+    #[test]
+    fn flux_info_rec_defaults_missing_sections_to_none() {
+        // Нода без бенчмарка/apps/гео (только что добавлена в сеть, ещё не
+        // прошла проверку) — все три секции Option и должны стать None, а не
+        // валить парсинг всего batch-ответа по сети (~7000 записей, §5.4).
+        let rec: FluxInfoRec = serde_json::from_str(r#"{"ip": "9.9.9.9:16137"}"#).unwrap();
+        assert!(rec.benchmark.is_none());
+        assert!(rec.apps.is_none());
+        assert!(rec.geolocation.is_none());
+    }
+
+    #[test]
+    fn geo_rec_defaults_when_fields_absent() {
+        let geo: GeoRec = serde_json::from_str("{}").unwrap();
+        assert_eq!(geo.country, "");
+        assert_eq!(geo.country_code, "");
+        assert_eq!(geo.region_name, "");
+    }
+
+    #[test]
+    fn bench_data_bench_passed_logic_true_when_status_set_and_error_empty() {
+        // Воспроизводим точную логику bench_passed из network_node_stats():
+        // пройден = запись бенча есть, error пуст, status не пуст.
+        let bench: BenchData = serde_json::from_str(
+            r#"{"status": "ok", "error": "", "cores": 4.0, "ram": 8.0, "ssd": 100.0, "eps": 50.0, "ping": 10.0}"#,
+        )
+        .unwrap();
+        let bench_passed = bench.error.is_empty() && !bench.status.is_empty();
+        assert!(bench_passed);
+    }
+
+    #[test]
+    fn bench_data_bench_passed_logic_false_when_error_present() {
+        // Наличие непустого error должно считаться непройденным бенчем даже
+        // при заполненном status — именно так дашборд решает, рисовать ли
+        // ноду как "не прошла бенчмарк".
+        let bench: BenchData = serde_json::from_str(
+            r#"{"status": "ok", "error": "benchmark timeout", "cores": 0.0, "ram": 0.0, "ssd": 0.0, "eps": 0.0, "ping": 0.0}"#,
+        )
+        .unwrap();
+        let bench_passed = bench.error.is_empty() && !bench.status.is_empty();
+        assert!(!bench_passed);
+    }
+
+    #[test]
+    fn bench_data_bench_passed_logic_false_when_status_empty() {
+        let bench: BenchData = serde_json::from_str(
+            r#"{"status": "", "error": "", "cores": 0.0, "ram": 0.0, "ssd": 0.0, "eps": 0.0, "ping": 0.0}"#,
+        )
+        .unwrap();
+        let bench_passed = bench.error.is_empty() && !bench.status.is_empty();
+        assert!(!bench_passed);
+    }
+
+    #[test]
+    fn apps_wrap_defaults_to_empty_when_runningapps_absent() {
+        // Пустой список приложений — норма (нода без пользовательских apps),
+        // а не повод падать на десериализации.
+        let apps: AppsWrap = serde_json::from_str("{}").unwrap();
+        assert!(apps.runningapps.is_empty());
+    }
+
+    #[test]
+    fn deterministic_node_list_deserializes_array_from_real_shaped_response() {
+        // Проверяем полный список (не одну запись) — форма ответа
+        // viewdeterministicfluxnodelist оборачивается в FluxEnvelope.
+        let json = r#"{
+            "status": "success",
+            "data": [
+                {
+                    "ip": "1.1.1.1:16137",
+                    "tier": "NIMBUS",
+                    "payment_address": "t1Foo",
+                    "rank": 1,
+                    "activesince": "1700000000",
+                    "lastpaid": "1700500000",
+                    "last_paid_height": 123456,
+                    "last_confirmed_height": 123400,
+                    "added_height": 100000,
+                    "amount": "12500.00"
+                },
+                {
+                    "ip": "2.2.2.2:16137",
+                    "tier": "CUMULUS",
+                    "payment_address": "t1Bar",
+                    "rank": 2
+                }
+            ]
+        }"#;
+        let env: FluxEnvelope<Vec<DeterministicNode>> = serde_json::from_str(json).unwrap();
+        let nodes = env.into_data().unwrap();
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[0].tier, "NIMBUS");
+        assert_eq!(nodes[0].last_paid_height, 123456);
+        assert_eq!(nodes[1].activesince, ""); // дефолт для второй записи без поля
+    }
+
+    #[test]
+    fn envelope_rejects_non_success_status_from_real_shaped_error_response() {
+        // Flux API при ошибке (например, невалидный запрос) отдаёт
+        // {"status": "error", "data": "..."} — into_data() должен вернуть
+        // ApiStatus, а не молча отдать содержимое data как валидный результат.
+        let json = r#"{"status": "error", "data": "Address not found"}"#;
+        let env: FluxEnvelope<String> = serde_json::from_str(json).unwrap();
+        let result = env.into_data();
+        assert!(matches!(result, Err(FluxError::ApiStatus(s)) if s == "error"));
+    }
 }
