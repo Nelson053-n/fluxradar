@@ -16,10 +16,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `web/` — React+Vite+TS+Tailwind дашборд по мокапу (токены `:root` 1-в-1), реальные данные через `/api`.
 - Прод локально: `infra/docker-compose.prod.yml` + `infra/nginx.prod.conf` + `scripts/prod-up.sh|prod-down.sh`.
 
-### Что НЕ доделано (осознанно, для следующих этапов)
-- `worker` — polling-тик пустой (заглушка); `bot` — команды-заглушки; репозитории `storage` (PG) — TODO.
-- Формула earnings отложена (нужны golden-тесты, §13.10). Данные мокапа без покрытия API (uptime/earnings/benchmark) показаны как «—».
-- TLS/HSTS/certbot, prod-Dockerfile'ы бинарей, rate-limit бота.
+### Что НЕ доделано
+
+- prod-Dockerfile'ы бинарей: на проде сервисы крутятся как systemd-юниты (`flux-api`/`flux-worker`/`flux-bot`), не в контейнерах.
+- Глубокой веб-аналитики нет: `/api/v1/stats/visitors` считает только уникальных посетителей (HLL в Redis), без referrer/путей/ботов.
+
+Список выше сверен с продом 10.09.2026. Ранее здесь значились как незавершённые `worker`, `bot`, `storage`, earnings, TLS и rate-limit бота — всё это давно работает (см. ниже), не считать их заглушками.
+
+### Что работает на проде (сверено 10.09.2026)
+
+- `worker` — polling живой: пишет `node_status_snapshots` (снапшот обновляется каждые ~15 сек).
+- `bot` — `@FluxRadar_bot`, long polling, 7 команд (`/start`, `/menu`, `/link`, `/unlink`, `/wallets`, `/status`, `/help`), rate-limit в `crates/bot/src/ratelimit.rs`. Реальные подписчики и отправленные алерты (`node_offline`/`node_online`) есть.
+- `storage` — `pg.rs` + `cache.rs`, PostgreSQL в контейнере `flux-postgres` (БД `fluxscope`).
+- Формула earnings — `crates/domain/src/earnings.rs`, покрыта 14 тестами.
+- TLS/HSTS — сертификат Let's Encrypt, `Strict-Transport-Security` отдаётся.
 
 **Перед началом любой работы прочитай ТЗ целиком** (`docs/TZ_Fluxnode_Service_v1.1.md`), включая §0 «Инструкция для Claude» — оно задаёт обязательный порядок первых шагов и развилки, требующие согласования с пользователем.
 

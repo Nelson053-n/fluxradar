@@ -51,7 +51,15 @@ impl Notifier {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
-    tracing_subscriber::fmt().json().init();
+    // RUST_LOG задаёт уровень (по умолчанию info); без EnvFilter `fmt()`
+    // пишет только ERROR и переменная окружения молча игнорируется.
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let database_url =
         std::env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL не задан"))?;
