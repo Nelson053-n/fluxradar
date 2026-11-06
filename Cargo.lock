@@ -243,6 +243,7 @@ dependencies = [
  "flux-client",
  "sqlx",
  "storage",
+ "telegram-client",
  "teloxide",
  "tokio",
  "tracing",
@@ -1854,6 +1855,7 @@ dependencies = [
  "system-configuration",
  "tokio",
  "tokio-rustls 0.24.1",
+ "tokio-socks",
  "tokio-util",
  "tower-service",
  "url",
@@ -2578,6 +2580,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20f34339676cdcab560c9a82300c4c2581f68b9369aedf0fae86f2ff9565ff3e"
 
 [[package]]
+name = "telegram-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "reqwest 0.11.27",
+ "teloxide",
+]
+
+[[package]]
 name = "teloxide"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2764,6 +2775,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls 0.23.40",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-socks"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7e2948f60dbe26b35f2c7fb74ac2854c1fddded0fe9d7548fcc674a246f7615"
+dependencies = [
+ "either",
+ "futures-util",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
@@ -3611,6 +3634,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "storage",
+ "telegram-client",
  "teloxide",
  "tokio",
  "tracing",

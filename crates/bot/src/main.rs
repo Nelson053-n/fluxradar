@@ -97,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
     // ТЗ §9 фиксирует имя TELEGRAM_BOT_TOKEN (teloxide по умолчанию ждёт TELOXIDE_TOKEN).
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .map_err(|_| anyhow::anyhow!("TELEGRAM_BOT_TOKEN не задан"))?;
-    let bot = Bot::new(token);
+    let bot = telegram_client::bot(token)?;
 
     register_commands(&bot).await;
     tracing::info!("FluxRadar bot запущен (long polling)");

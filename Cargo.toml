@@ -7,6 +7,7 @@ members = [
     "crates/flux-client",
     "crates/domain",
     "crates/storage",
+    "crates/telegram-client",
 ]
 
 # Общие настройки и зависимости для всех крейтов workspace.
@@ -22,6 +23,7 @@ license = "MIT"
 domain = { path = "crates/domain" }
 flux-client = { path = "crates/flux-client" }
 storage = { path = "crates/storage" }
+telegram-client = { path = "crates/telegram-client" }
 
 # --- async-рантайм ---
 tokio = { version = "1", features = ["full"] }
@@ -33,6 +35,9 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 
 # --- Flux API клиент ---
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# reqwest 0.11 — версия внутри teloxide-core 0.10. Подключаем явно с фичей "socks",
+# иначе SOCKS5-прокси (telegram-egress) недоступен.
+tg-http = { package = "reqwest", version = "0.11", default-features = false, features = ["json", "rustls-tls", "socks"] }
 
 # --- сериализация ---
 serde = { version = "1", features = ["derive"] }

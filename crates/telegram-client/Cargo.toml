@@ -1,0 +1,14 @@
+[package]
+name = "telegram-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+# teloxide-core 0.10 работает на reqwest 0.11; прямая зависимость нужна, чтобы
+# включить фичу "socks" — фичи cargo аддитивны, и тот же экземпляр reqwest 0.11
+# внутри teloxide получает поддержку SOCKS5.
+tg-http.workspace = true
+teloxide.workspace = true

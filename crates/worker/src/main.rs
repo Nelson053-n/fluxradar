@@ -26,8 +26,15 @@ struct Notifier {
 impl Notifier {
     fn from_env() -> Self {
         match std::env::var("TELEGRAM_BOT_TOKEN") {
-            Ok(t) if !t.is_empty() && !t.contains("placeholder") => Self {
-                bot: Some(Bot::new(t)),
+            Ok(t) if !t.is_empty() && !t.contains("placeholder") => match telegram_client::bot(t) {
+                Ok(bot) => Self { bot: Some(bot) },
+                Err(e) => {
+                    error!(
+                        ?e,
+                        "не удалось собрать клиент Telegram — алерты только в лог"
+                    );
+                    Self { bot: None }
+                }
             },
             _ => {
                 warn!("TELEGRAM_BOT_TOKEN не задан — алерты только в лог, без отправки в Telegram");
