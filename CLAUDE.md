@@ -18,18 +18,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Что НЕ доделано
 
-- prod-Dockerfile'ы бинарей: на проде сервисы крутятся как systemd-юниты (`flux-api`/`flux-worker`/`flux-bot`), не в контейнерах.
+- Dockerfile'ов бинарей в репозитории нет: образ `api` для прода собирается вне репо (готовый `target/release/api` поверх debian-образа); `worker`/`bot` запускаются как systemd-сервисы.
 - Глубокой веб-аналитики нет: `/api/v1/stats/visitors` считает только уникальных посетителей (HLL в Redis), без referrer/путей/ботов.
 
 Список выше сверен с продом 10.09.2026. Ранее здесь значились как незавершённые `worker`, `bot`, `storage`, earnings, TLS и rate-limit бота — всё это давно работает (см. ниже), не считать их заглушками.
 
-### Что работает на проде (сверено 10.09.2026)
+### Что работает на проде (сверено 06.11.2026)
 
-- `worker` — polling живой: пишет `node_status_snapshots` (снапшот обновляется каждые ~15 сек).
+Схема с 04–06.11.2026: `web` + `api` + Redis работают в Docker Compose на VPS; `api` PostgreSQL не использует. `worker` и `bot` вынесены на отдельную машину, потому что с VPS заблокирован доступ к Telegram API; у них свои PostgreSQL и Redis. Хосты, пути и порядок деплоя в репозиторий не кладём (он публичный) — они в локальных заметках оператора.
+
+- `worker` — polling раз в 60 сек, пишет `node_status_snapshots`. Перезапущен 06.11.2026; снапшоты перед стартом очищены (лежали с 24.07), чтобы не разослать ложные алерты.
 - `bot` — `@FluxRadar_bot`, long polling, 7 команд (`/start`, `/menu`, `/link`, `/unlink`, `/wallets`, `/status`, `/help`), rate-limit в `crates/bot/src/ratelimit.rs`. Реальные подписчики и отправленные алерты (`node_offline`/`node_online`) есть.
-- `storage` — `pg.rs` + `cache.rs`, PostgreSQL в контейнере `flux-postgres` (БД `fluxscope`).
+- `storage` — `pg.rs` + `cache.rs`, PostgreSQL в контейнере (БД `fluxscope`). Подписки восстановлены из копии от 24.07.2026 — подписавшиеся позже должны заново сделать `/link`.
 - Формула earnings — `crates/domain/src/earnings.rs`, покрыта 14 тестами.
-- TLS/HSTS — сертификат Let's Encrypt, `Strict-Transport-Security` отдаётся.
+- TLS — сертификат Let's Encrypt на хостовом nginx VPS. **HSTS сейчас не отдаётся** (CSP и прочие security-заголовки есть) — вернуть.
 
 **Перед началом любой работы прочитай ТЗ целиком** (`docs/TZ_Fluxnode_Service_v1.1.md`), включая §0 «Инструкция для Claude» — оно задаёт обязательный порядок первых шагов и развилки, требующие согласования с пользователем.
 
