@@ -13,7 +13,7 @@ use axum::{
     Json, Router,
 };
 use domain::{node_age_secs, NetworkSummary, SummaryInputs, Tier};
-use flux_client::{DeterministicNode, FluxClient};
+use flux_client::{DeterministicNode, FluxClient, PriceInfo};
 use serde_json::json;
 use storage::cache::{self, RedisPool};
 use tower_http::cors::CorsLayer;
@@ -86,7 +86,8 @@ async fn health() -> &'static str {
 /// Readiness probe — проверяет Redis и доступность Flux API (§6).
 async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let redis_ok = cache::ping(&state.redis).await.is_ok();
-    let flux_ok = state.flux.flux_price_usd().await.is_ok();
+    // Цена из кэша/запаса: readiness не должна дёргать CoinGecko на каждой проверке.
+    let flux_ok = cached_price(&state).await.is_ok();
     if redis_ok && flux_ok {
         (
             StatusCode::OK,
@@ -102,7 +103,7 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 /// Текущая цена FLUX в USD + изменение за 24ч (§8).
 async fn network_price(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    match state.flux.flux_price().await {
+    match cached_price(&state).await {
         Ok(p) => (
             StatusCode::OK,
             Json(json!({"flux_usd": p.usd, "change_24h": p.change_24h})),
@@ -236,7 +237,7 @@ async fn wallet_summary(
     let (nodes_res, balance_res, price_res, network_res, pa_res, node_stats) = tokio::join!(
         state.flux.nodes_for_wallet(&address),
         state.flux.balance_satoshi(&address),
-        state.flux.flux_price(),
+        cached_price(&state),
         state.flux.network_count(),
         state.flux.wallet_pa_summary(&address),
         cached_node_stats(&state),
@@ -611,6 +612,79 @@ async fn cached_node_stats(
     Some(map)
 }
 
+/// Ключ свежей цены FLUX — общий для /network/price, summary и /ready.
+const PRICE_KEY: &str = "price:current";
+/// Сколько держим свежую цену: бесплатный CoinGecko отвечает 429 на частые запросы.
+const PRICE_TTL_SECS: u64 = 60;
+/// Последняя успешно полученная цена — запас на случай отказа CoinGecko.
+const PRICE_LAST_KEY: &str = "price:last";
+const PRICE_LAST_TTL_SECS: u64 = 24 * 3600;
+/// Пока CoinGecko отвечает ошибкой, повторяем запрос не чаще раза в это время.
+const PRICE_RETRY_SECS: u64 = 30;
+
+fn encode_price(p: &PriceInfo) -> String {
+    json!({"usd": p.usd, "change_24h": p.change_24h}).to_string()
+}
+
+/// Разбор цены из кэша; мусор и неположительная цена считаются отсутствием.
+fn decode_price(s: &str) -> Option<PriceInfo> {
+    let v: serde_json::Value = serde_json::from_str(s).ok()?;
+    let usd = v.get("usd")?.as_f64()?;
+    let change_24h = v
+        .get("change_24h")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    (usd.is_finite() && usd > 0.0).then_some(PriceInfo { usd, change_24h })
+}
+
+/// Цена после похода в CoinGecko: свежая, иначе последняя известная, иначе ошибка.
+/// Второй элемент — признак, что цена взята из запаса.
+fn choose_price<E>(
+    upstream: Result<PriceInfo, E>,
+    last_known: Option<PriceInfo>,
+) -> Result<(PriceInfo, bool), E> {
+    match upstream {
+        Ok(p) => Ok((p, false)),
+        Err(e) => last_known.map(|p| (p, true)).ok_or(e),
+    }
+}
+
+async fn read_price(state: &AppState, key: &str) -> Option<PriceInfo> {
+    let cached = cache::get(&state.redis, key).await.ok().flatten()?;
+    decode_price(&cached)
+}
+
+async fn write_price(state: &AppState, key: &str, price: &PriceInfo, ttl: u64) {
+    if let Err(e) = cache::set_ex(&state.redis, key, &encode_price(price), ttl).await {
+        warn!(?e, key = %key, "не удалось записать кэш цены");
+    }
+}
+
+/// Цена FLUX с кэшем в Redis и запасом на случай отказа CoinGecko (429 и т.п.):
+/// без него /network/price отдавал 502, а summary — нулевые суммы в USD.
+async fn cached_price(state: &AppState) -> Result<PriceInfo, flux_client::FluxError> {
+    if let Some(p) = read_price(state, PRICE_KEY).await {
+        return Ok(p);
+    }
+    let upstream = state.flux.flux_price().await;
+    let last_known = match &upstream {
+        Ok(_) => None,
+        Err(e) => {
+            warn!(%e, "CoinGecko: не удалось получить цену FLUX");
+            read_price(state, PRICE_LAST_KEY).await
+        }
+    };
+    let (price, stale) = choose_price(upstream, last_known)?;
+    if stale {
+        warn!("отдаём последнюю известную цену FLUX");
+        write_price(state, PRICE_KEY, &price, PRICE_RETRY_SECS).await;
+    } else {
+        write_price(state, PRICE_KEY, &price, PRICE_TTL_SECS).await;
+        write_price(state, PRICE_LAST_KEY, &price, PRICE_LAST_TTL_SECS).await;
+    }
+    Ok(price)
+}
+
 fn bad_address() -> axum::response::Response {
     (
         StatusCode::BAD_REQUEST,
@@ -630,9 +704,12 @@ fn upstream_error(err: flux_client::FluxError) -> axum::response::Response {
 
 #[cfg(test)]
 mod tests {
-    use super::{client_ip, normalize_node_ip, router, AppState};
+    use super::{
+        choose_price, client_ip, decode_price, encode_price, normalize_node_ip, router, AppState,
+    };
     use axum::body::Body;
     use axum::http::{HeaderMap, Request, StatusCode};
+    use flux_client::PriceInfo;
     use std::sync::Arc;
     use tower::ServiceExt;
 
@@ -833,5 +910,43 @@ mod tests {
         let a = normalize_node_ip("1.1.1.1:16137").unwrap().0;
         let b = normalize_node_ip("1.1.1.1:016137").unwrap().0;
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn price_cache_roundtrip() {
+        let p = PriceInfo {
+            usd: 0.056748,
+            change_24h: -0.14,
+        };
+        let back = decode_price(&encode_price(&p)).expect("цена читается обратно");
+        assert_eq!(back.usd, p.usd);
+        assert_eq!(back.change_24h, p.change_24h);
+    }
+
+    #[test]
+    fn price_cache_rejects_garbage_and_non_positive() {
+        assert!(decode_price("not json").is_none());
+        assert!(decode_price(r#"{"change_24h": 1.0}"#).is_none());
+        assert!(decode_price(r#"{"usd": 0.0}"#).is_none());
+        assert!(decode_price(r#"{"usd": -1.0}"#).is_none());
+        let p = decode_price(r#"{"usd": 0.05}"#).expect("без change_24h");
+        assert_eq!(p.change_24h, 0.0);
+    }
+
+    #[test]
+    fn choose_price_prefers_upstream_then_last_known() {
+        let fresh = PriceInfo {
+            usd: 0.06,
+            change_24h: 1.0,
+        };
+        let last = PriceInfo {
+            usd: 0.05,
+            change_24h: 0.0,
+        };
+        let (p, stale) = choose_price::<&str>(Ok(fresh), Some(last)).unwrap();
+        assert_eq!((p.usd, stale), (0.06, false));
+        let (p, stale) = choose_price(Err("429"), Some(last)).unwrap();
+        assert_eq!((p.usd, stale), (0.05, true));
+        assert_eq!(choose_price(Err("429"), None).unwrap_err(), "429");
     }
 }

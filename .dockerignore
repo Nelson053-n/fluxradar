@@ -1,0 +1,6 @@
+# Белый список: в контекст сборки образа api идёт только Rust-workspace.
+# .env, target/, web/ и прочее сюда не попадают.
+*
+!Cargo.toml
+!Cargo.lock
+!crates

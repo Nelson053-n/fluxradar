@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Что НЕ доделано
 
-- Dockerfile'ов бинарей в репозитории нет: образ `api` для прода собирается вне репо (готовый `target/release/api` поверх debian-образа); `worker`/`bot` запускаются как systemd-сервисы.
+- Образ `api` для прода собирается по `infra/api.Dockerfile` (многоэтапная сборка из исходников, контекст ограничен `.dockerignore`); для `worker`/`bot` Dockerfile'ов нет — они запускаются как systemd-сервисы.
 - Глубокой веб-аналитики нет: `/api/v1/stats/visitors` считает только уникальных посетителей (HLL в Redis), без referrer/путей/ботов.
 
 Список выше сверен с продом 10.09.2026. Ранее здесь значились как незавершённые `worker`, `bot`, `storage`, earnings, TLS и rate-limit бота — всё это давно работает (см. ниже), не считать их заглушками.
