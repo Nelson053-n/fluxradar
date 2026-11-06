@@ -23,6 +23,8 @@ pub enum FluxError {
     Status(reqwest::StatusCode),
     #[error("Flux API вернул status != success: {0}")]
     ApiStatus(String),
+    #[error("некорректный URL запроса: {0}")]
+    Url(String),
 }
 
 /// Стандартная обёртка ответа Flux API: `{ "status": "...", "data": ... }`.
@@ -259,16 +261,16 @@ impl FluxClient {
         env.into_data()
     }
 
-    /// Ноды конкретного владельца — фильтр общего списка по `payment_address` (§5.4).
+    /// Ноды конкретного владельца (§5.4). Список фильтрует сам Flux API (`?filter=`),
+    /// поэтому приходят килобайты вместо ~4 МБ всего списка сети. Фильтр Flux —
+    /// поиск по подстроке, так что точное совпадение `payment_address` проверяем здесь.
     pub async fn nodes_for_wallet(
         &self,
         wallet: &str,
     ) -> Result<Vec<DeterministicNode>, FluxError> {
-        let all = self.deterministic_node_list().await?;
-        Ok(all
-            .into_iter()
-            .filter(|n| n.payment_address == wallet)
-            .collect())
+        let url = wallet_node_list_url(&self.base_url, wallet)?;
+        let env: FluxEnvelope<Vec<DeterministicNode>> = self.get_json(url.as_str()).await?;
+        Ok(own_nodes(env.into_data()?, wallet))
     }
 
     /// Баланс адреса в сатоши Flux (`/explorer/balance`).
@@ -445,6 +447,21 @@ struct CoinGeckoChart {
 #[derive(Debug, Deserialize)]
 struct FluxFusionEnvelope {
     data: PaSummary,
+}
+
+/// URL детерминированного списка с серверным фильтром по адресу (адрес экранируется).
+fn wallet_node_list_url(base_url: &str, wallet: &str) -> Result<reqwest::Url, FluxError> {
+    let base = format!("{base_url}/daemon/viewdeterministicfluxnodelist");
+    reqwest::Url::parse_with_params(&base, &[("filter", wallet)])
+        .map_err(|e| FluxError::Url(e.to_string()))
+}
+
+/// Только ноды с точно совпадающим `payment_address`.
+fn own_nodes(nodes: Vec<DeterministicNode>, wallet: &str) -> Vec<DeterministicNode> {
+    nodes
+        .into_iter()
+        .filter(|n| n.payment_address == wallet)
+        .collect()
 }
 
 #[cfg(test)]
@@ -846,5 +863,30 @@ mod tests {
         let env: FluxEnvelope<String> = serde_json::from_str(json).unwrap();
         let result = env.into_data();
         assert!(matches!(result, Err(FluxError::ApiStatus(s)) if s == "error"));
+    }
+
+    #[test]
+    fn wallet_node_list_url_puts_address_into_filter() {
+        let url = wallet_node_list_url("https://api.runonflux.io", "t1Foo").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.runonflux.io/daemon/viewdeterministicfluxnodelist?filter=t1Foo"
+        );
+        // Посторонние символы экранируются, а не ломают запрос.
+        let url = wallet_node_list_url("https://api.runonflux.io", "a&b c").unwrap();
+        assert_eq!(url.query(), Some("filter=a%26b+c"));
+    }
+
+    #[test]
+    fn own_nodes_keeps_only_exact_payment_address() {
+        // Фильтр Flux ищет по подстроке: «t1Foo» вернёт и «t1FooBar» — его отсекаем.
+        let json = r#"[
+            {"ip": "1.1.1.1:16137", "tier": "NIMBUS", "payment_address": "t1Foo", "rank": 1},
+            {"ip": "2.2.2.2:16137", "tier": "NIMBUS", "payment_address": "t1FooBar", "rank": 2}
+        ]"#;
+        let nodes: Vec<DeterministicNode> = serde_json::from_str(json).unwrap();
+        let own = own_nodes(nodes, "t1Foo");
+        assert_eq!(own.len(), 1);
+        assert_eq!(own[0].ip, "1.1.1.1:16137");
     }
 }
