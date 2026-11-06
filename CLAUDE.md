@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bot` — `@FluxRadar_bot`, long polling, 7 команд (`/start`, `/menu`, `/link`, `/unlink`, `/wallets`, `/status`, `/help`), rate-limit в `crates/bot/src/ratelimit.rs`. Реальные подписчики и отправленные алерты (`node_offline`/`node_online`) есть.
 - `storage` — `pg.rs` + `cache.rs`, PostgreSQL в контейнере (БД `fluxscope`). Подписки восстановлены из копии от 24.07.2026 — подписавшиеся позже должны заново сделать `/link`.
 - Формула earnings — `crates/domain/src/earnings.rs`, покрыта 14 тестами.
-- TLS — сертификат Let's Encrypt на хостовом nginx VPS. **HSTS сейчас не отдаётся** (CSP и прочие security-заголовки есть) — вернуть.
+- TLS — сертификат Let's Encrypt на хостовом nginx VPS. HSTS (`max-age=31536000; includeSubDomains`, с 07.11.2026), CSP и прочие security-заголовки отдаёт nginx контейнера по `infra/nginx.prod.conf`.
 
 **Перед началом любой работы прочитай ТЗ целиком** (`docs/TZ_Fluxnode_Service_v1.1.md`), включая §0 «Инструкция для Claude» — оно задаёт обязательный порядок первых шагов и развилки, требующие согласования с пользователем.
 
