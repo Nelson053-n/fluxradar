@@ -19,8 +19,8 @@ const ITEMS: { key: MoneyKey; labelKey: Keys }[] = [
 
 /**
  * Totals — три карточки накопленных сумм за жизнь нод:
- * Total Mined / Claimed / Claimable. Бейдж «est.» только если данные оценочные
- * (`totals.is_estimate === true`); при реальных данных PA fusion бейджа нет.
+ * Только подтверждённые суммы Fusion. Оценка native+PA по возрасту нод
+ * не заменяет историю PA при недоступном источнике.
  */
 export function TotalsCards({ totals }: TotalsCardsProps) {
   const t = useT()
@@ -30,9 +30,9 @@ export function TotalsCards({ totals }: TotalsCardsProps) {
         <TotalCard
           key={key}
           label={t(labelKey)}
-          money={totals[key]}
-          note={totals.is_estimate ? t('totals.note') : t('totals.noteReal')}
-          estimate={totals.is_estimate ? t('earnings.estimate') : null}
+          money={totals.is_estimate ? null : totals[key]}
+          note={totals.is_estimate ? t('earnings.notAvailable') : t('totals.noteReal')}
+          estimate={totals.is_estimate ? t('earnings.notAvailable') : null}
         />
       ))}
     </>
@@ -41,9 +41,9 @@ export function TotalsCards({ totals }: TotalsCardsProps) {
 
 interface TotalCardProps {
   label: string
-  money: Money
+  money: Money | null
   note: string
-  /** Текст бейджа «est.» или null (реальные данные — бейджа нет). */
+  /** Бейдж недоступности источника или null. */
   estimate: string | null
 }
 
@@ -59,10 +59,10 @@ function TotalCard({ label, money, note, estimate }: TotalCardProps) {
         )}
       </div>
       <div className="mb-1.5 font-mono text-[28px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[34px]">
-        {formatFlux(money.flux)}
+        {money ? formatFlux(money.flux) : '—'}
         <span className="ml-1.5 text-[14px] font-semibold text-text-dim">FLUX</span>
       </div>
-      <div className="font-mono text-[13px] text-text-secondary">≈ {formatUsdSmart(money.usd)}</div>
+      <div className="font-mono text-[13px] text-text-secondary">{money ? `≈ ${formatUsdSmart(money.usd)}` : '—'}</div>
       <div className="mt-2 text-[11px] text-text-dim">{note}</div>
     </div>
   )

@@ -54,9 +54,7 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
     setCounts((c) => ({ ...c, [tier]: v }))
   }
 
-  // Сеть: загруженная или нейтральный fallback (1 — чтобы не делить на 0 до прихода данных).
-  const net = network ?? { cumulus: 1, nimbus: 1, stratus: 1 }
-  const r = calcEarnings(counts, net, priceUsd)
+  const r = calcEarnings(counts, network, priceUsd)
 
   const periodFlux = { daily: r.dailyFlux, monthly: r.monthlyFlux, yearly: r.yearlyFlux }[period]
   const periodUsd = { daily: r.dailyUsd, monthly: r.monthlyUsd, yearly: r.yearlyUsd }[period]
@@ -140,16 +138,16 @@ export function Calculator({ network, priceUsd, defaultCounts }: CalculatorProps
                 })}
               </div>
               <div className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.04em] text-text-primary md:text-[30px]">
-                {formatFlux(periodFlux)}
+                {r.available ? formatFlux(periodFlux) : t('earnings.notAvailable')}
                 <span className="ml-1.5 text-[14px] font-semibold text-text-dim">FLUX</span>
               </div>
               <div className="mt-1 font-mono text-[13px] text-text-secondary">
-                ≈ {formatUsdSmart(periodUsd)}
+                {r.available ? `≈ ${formatUsdSmart(periodUsd)}` : '—'}
               </div>
             </div>
             <div className="text-right">
               <div className="font-mono text-[22px] font-extrabold leading-none tracking-[-0.03em] text-flux-cyan md:text-[26px]">
-                {formatNum(r.apyPercent, 1)}%
+                {r.available ? `${formatNum(r.apyPercent, 1)}%` : '—'}
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-dim">
                 {t('earnings.apy')}

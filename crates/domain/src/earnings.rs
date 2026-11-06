@@ -8,6 +8,9 @@
 //! Модель (PoUW v2): на каждый блок (~30с) фиксированная награда тиру делится
 //! поровну между активными нодами этого тира. Месячный доход одной ноды:
 //!   reward_тира / число_активных_нод_тира × блоков_в_месяц.
+//! Текущие ставки: с блока 3_071_200 (26.10.2026), 9 активных PA.
+//! Источники: https://runonflux.com/first-annual-block-reward-reduction
+//! https://docs.runonflux.com/fluxnodes/claim-parallel-assets/
 //! Все оценки помечаются на фронте как «est.» — это прогноз, не факт выплат.
 
 use crate::Tier;
@@ -40,13 +43,12 @@ pub fn satoshi_to_flux(satoshi: u64) -> f64 {
 // правится здесь, golden-тесты ниже ловят расхождение. ---
 
 /// Награда за блок одной ноде тира до деления на число нод (FLUX/блок на тир).
-/// Общая награда блока 14 FLUX × доля тира (Cumulus 7.142% / Nimbus 25% /
-/// Stratus 64.28%) = 1.0 / 3.5 / 9.0 FLUX (факты сети Flux, сверено).
+/// С блока 3_071_200: 12.6 FLUX/блок, из них 0.9/3.15/8.1 — нодам.
 fn tier_block_reward(tier: Tier) -> f64 {
     match tier {
-        Tier::Cumulus => 1.0,
-        Tier::Nimbus => 3.5,
-        Tier::Stratus => 9.0,
+        Tier::Cumulus => 0.9,
+        Tier::Nimbus => 3.15,
+        Tier::Stratus => 8.1,
     }
 }
 
@@ -68,19 +70,12 @@ const DAYS_PER_MONTH: f64 = 30.0;
 const DAYS_PER_YEAR: f64 = 365.0;
 
 // --- Parallel Assets (PA) — «боковая» доходность Flux. ---
-// Помимо on-chain FLUX, нода получает награды в Parallel Assets (FLUX на других
-// чейнах: KDA/ETH/BSC/SOL/TRX/AVAX/ERG/ALGO/BTC/...). Каждый активный PA добавляет
-// ~10% к награде ноды (off-chain, redistribution Foundation). При всех 10 активных
-// PA доход эффективно удваивается. Без учёта PA оценка занижалась вдвое.
-/// Доля награды на один активный Parallel Asset (10% базовой награды за блок).
+// Каждый активный PA даёт 10% native-награды, до комиссий claim.
+// Ergo больше не активен после 21.09.2026; старые остатки не входят в новый прогноз.
 const PA_REWARD_SHARE: f64 = 0.10;
-/// Число активных Parallel Assets на текущий момент (KDA, ETH, BSC, SOL, TRX,
-/// AVAX, ERG, ALGO, BTC, ...). Обновляется при запуске новых PA — golden-тесты
-/// ниже ловят изменение множителя.
-const ACTIVE_PARALLEL_ASSETS: u32 = 10;
+const ACTIVE_PARALLEL_ASSETS: u32 = 9;
 
-/// Множитель совокупной доходности: 1.0 (on-chain FLUX) + доля PA.
-/// 10 PA × 0.10 = +1.0 → множитель 2.0 (доход удваивается).
+/// Native + начисленные PA; фактический claim и комиссии здесь не учитываются.
 fn total_reward_multiplier() -> f64 {
     1.0 + ACTIVE_PARALLEL_ASSETS as f64 * PA_REWARD_SHARE
 }
@@ -163,7 +158,7 @@ pub fn active_parallel_assets() -> u32 {
 }
 
 /// Доля «боковой» (Parallel Assets) части в совокупном доходе, [0..1].
-/// PA / (1 + PA). При 10 PA = 1.0/2.0 = 0.5 (половина дохода — боковая).
+/// PA / (1 + PA): при 9 активных сетях это 0.9/1.9.
 pub fn parallel_assets_share() -> f64 {
     let pa = ACTIVE_PARALLEL_ASSETS as f64 * PA_REWARD_SHARE;
     pa / (1.0 + pa)
@@ -268,31 +263,28 @@ mod tests {
     }
 
     #[test]
-    fn golden_pa_multiplier_doubles() {
-        // 10 активных Parallel Assets × 10% = +100% → множитель 2.0.
-        assert!((total_reward_multiplier() - 2.0).abs() < 1e-9);
+    fn golden_pa_multiplier_nine_active_chains() {
+        // 9 активных PA × 10% = +90% к native.
+        assert!((total_reward_multiplier() - 1.9).abs() < 1e-9);
     }
 
     #[test]
     fn golden_cumulus_node_monthly() {
-        // Cumulus reward 1 FLUX/блок, 3795 нод тира, 86400 блоков/мес, ×2 (PA).
-        // 1/3795 * 86400 * 2 = 45.5336... FLUX-экв/мес.
+        // Текущая ставка 0.9 FLUX, 9 PA, период 30 дней.
         let flux = node_period_flux(Tier::Cumulus, 3795, DAYS_PER_MONTH);
-        assert!((flux - 45.533_596_8).abs() < 1e-5, "got {flux}");
+        assert!((flux - 38.931_225_296).abs() < 1e-5, "got {flux}");
     }
 
     #[test]
     fn golden_stratus_node_monthly() {
-        // Stratus reward 9 FLUX/блок, 1586 нод, 86400 блоков/мес, ×2 (PA).
-        // 9/1586 * 86400 * 2 = 980.580... FLUX-экв/мес.
+        // Текущая ставка 8.1 FLUX, 9 PA, период 30 дней.
         let flux = node_period_flux(Tier::Stratus, 1586, DAYS_PER_MONTH);
-        assert!((flux - 980.580_075_6).abs() < 1e-4, "got {flux}");
+        assert!((flux - 838.395_964_691).abs() < 1e-4, "got {flux}");
     }
 
     #[test]
     fn golden_fleet_estimate() {
-        // Флот: 2 Cumulus + 1 Stratus. Сеть: cumulus=3795, stratus=1586. С учётом ×2 (PA).
-        // monthly = (2*(1/3795*86400) + 1*(9/1586*86400)) * 2 = 535.823635 * 2 = 1071.64727
+        // Флот 2 Cumulus + 1 Stratus, текущие ставки и 9 PA.
         let network = TierCounts {
             cumulus: 3795,
             nimbus: 1708,
@@ -301,7 +293,7 @@ mod tests {
         let (monthly, yearly) =
             fleet_estimate_flux(&[Tier::Cumulus, Tier::Cumulus, Tier::Stratus], network);
         assert!(
-            (monthly - 1_071.647_270_6).abs() < 1e-3,
+            (monthly - 916.258_415_283).abs() < 1e-3,
             "monthly {monthly}"
         );
         // Годовой = месячный * (365/30).
@@ -337,9 +329,9 @@ mod tests {
             nimbus: 1708,
             stratus: 1586,
         };
-        // daily Cumulus = 1/3795 * 2880 блоков/день * 2 (PA) = 1.51779 FLUX/день.
+        // 0.9 FLUX/блок, 3795 нод, 2880 блоков/день, PA +90%.
         let d = node_period_flux(Tier::Cumulus, 3795, 1.0);
-        assert!((d - 1.517_786_56).abs() < 1e-5, "daily {d}");
+        assert!((d - 1.297_707_51).abs() < 1e-5, "daily {d}");
         // fleet_earnings: monthly = 30 * daily, yearly = 365 * daily.
         let e = fleet_earnings(&[Tier::Cumulus], network);
         assert!((e.monthly - e.daily * 30.0).abs() < 1e-6);
@@ -347,10 +339,10 @@ mod tests {
     }
 
     #[test]
-    fn golden_pa_share_half() {
-        // 10 PA × 10% = +100% → боковая доля = 1.0/(1+1.0) = 0.5 (половина дохода).
-        assert!((parallel_assets_share() - 0.5).abs() < 1e-9);
-        assert_eq!(active_parallel_assets(), 10);
+    fn golden_pa_share_nine_chains() {
+        // 9 PA × 10% = +90%; доля PA в совокупном доходе — 0.9/1.9.
+        assert!((parallel_assets_share() - 0.9 / 1.9).abs() < 1e-9);
+        assert_eq!(active_parallel_assets(), 9);
     }
 
     #[test]

@@ -11,7 +11,7 @@ interface ParallelAssetsProps {
   paChains: PaChain[]
 }
 
-// Тикеры PA-чейнов (10 шт.) — статичный список для fallback-режима, не переводится.
+// Действующие PA; исторические остатки Ergo приходят отдельно в paChains.
 const PA_CHAINS = [
   'KDA',
   'ETH',
@@ -19,9 +19,8 @@ const PA_CHAINS = [
   'SOL',
   'TRX',
   'AVAX',
-  'ERG',
   'ALGO',
-  'BTC',
+  'BASE',
   'MATIC',
 ] as const
 
@@ -60,6 +59,7 @@ export function ParallelAssets({ earnings, paChains }: ParallelAssetsProps) {
               <div className="mt-2 space-y-1 font-mono text-[12px]">
                 <ChainRow label={t('pa.claimable')} value={paAmount(c.claimable)} accent />
                 <ChainRow label={t('pa.claimed')} value={paAmount(c.claimed)} />
+                <ChainRow label={t('pa.received')} value={paAmount(c.received)} />
                 <ChainRow label={t('pa.fees')} value={paAmount(c.fees)} />
               </div>
             </div>

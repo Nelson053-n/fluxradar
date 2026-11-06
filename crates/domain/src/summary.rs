@@ -278,10 +278,10 @@ mod tests {
         // day < month < year
         assert!(s.earnings.daily.flux < s.earnings.monthly.flux);
         assert!(s.earnings.monthly.flux < s.earnings.yearly.flux);
-        // APY > 0, PA = 50% при 10 активных PA
+        // APY > 0, доля PA = 0.9/1.9 при 9 активных сетях
         assert!(s.earnings.apy_percent > 0.0);
-        assert!((s.earnings.parallel_assets_pct - 50.0).abs() < 1e-6);
-        assert_eq!(s.earnings.parallel_assets_count, 10);
+        assert!((s.earnings.parallel_assets_pct - 100.0 * 0.9 / 1.9).abs() < 1e-6);
+        assert_eq!(s.earnings.parallel_assets_count, 9);
     }
 
     #[test]

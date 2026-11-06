@@ -70,15 +70,15 @@ const en = {
   'pa.summary': '{pct}% of total rewards across {count} chains',
   'pa.perChainYear': '≈ FLUX / year per chain',
   'pa.share': 'each ≈ {pct}% share',
-  'pa.realSubtitle': 'Real per-chain rewards (FLUX)',
+  'pa.realSubtitle': 'Cumulative Fusion data (FLUX); Ergo is a historical balance',
   'pa.claimable': 'Claimable',
   'pa.claimed': 'Claimed',
   'pa.received': 'Received',
   'pa.fees': 'Fees',
 
   // Totals
-  'totals.mined': 'Total Mined',
-  'totals.claimed': 'Total Claimed to date',
+  'totals.mined': 'PA accrued',
+  'totals.claimed': 'PA claimed before fees',
   'totals.claimable': 'Total Claimable',
   'totals.note': 'estimated from node age',
   'totals.noteReal': 'from Parallel Assets data',
